@@ -1,0 +1,8 @@
+{
+  "name": "Remix Aura Voice AI",
+  "description": "Premium cinematic AI studio for realistic documentary narration using a signature voice and intelligent multi-API script processing.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
