@@ -208,7 +208,7 @@ export default function SettingsPage() {
              <select
                value={newKeyProvider}
                onChange={(e) => setNewKeyProvider(e.target.value as 'elevenlabs' | 'cartesia' | 'google')}
-               className="bg-black/40 border border-white/10 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-white/30 transition-colors cursor-pointer text-white/90"
+               className="bg-neutral-50 border border-neutral-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-purple-400 transition-colors cursor-pointer text-neutral-900 font-medium"
              >
                <option value="elevenlabs">ElevenLabs</option>
                <option value="cartesia">Cartesia</option>
@@ -219,7 +219,7 @@ export default function SettingsPage() {
                placeholder="Key Name (e.g. Personal Pro)"
                value={newKeyName}
                onChange={e => setNewKeyName(e.target.value)}
-               className="flex-1 bg-black/40 border border-white/10 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-white/30 transition-colors placeholder:text-neutral-600 text-white/90"
+               className="flex-1 bg-neutral-50 border border-neutral-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-purple-400 transition-colors placeholder:text-neutral-400 text-neutral-900 font-medium"
                required
              />
              <input 
@@ -227,27 +227,27 @@ export default function SettingsPage() {
                placeholder="API Key..."
                value={newKeyValue}
                onChange={e => setNewKeyValue(e.target.value)}
-               className="flex-[2] bg-black/40 border border-white/10 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-white/30 transition-colors placeholder:text-neutral-600 placeholder:font-mono text-white/90"
+               className="flex-[2] bg-neutral-50 border border-neutral-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-purple-400 transition-colors placeholder:text-neutral-400 placeholder:font-mono text-neutral-900 font-medium"
                required
              />
              <button 
                type="submit"
-               className="bg-white/90 text-black px-8 py-3 rounded-2xl text-sm font-semibold hover:bg-white transition-all shadow-lg hover:scale-105 active:scale-95 shrink-0 whitespace-nowrap sm:w-auto w-full"
+               className="bg-neutral-900 text-white px-8 py-3 rounded-2xl text-sm font-bold hover:bg-neutral-800 transition-all shadow-md hover:scale-105 active:scale-95 shrink-0 whitespace-nowrap sm:w-auto w-full"
              >
-               Save
+               Save Key
              </button>
           </form>
         </div>
 
         {/* Saved Keys List */}
         <div className="space-y-4">
-          <h3 className="text-lg font-medium flex items-center gap-2 text-neutral-300">
-            <Key className="w-5 h-5 " />
+          <h3 className="text-lg font-bold flex items-center gap-2 text-neutral-900">
+            <Key className="w-5 h-5 text-purple-600" />
             Saved Keys
           </h3>
 
           {apiKeys.length === 0 ? (
-            <div className="text-center py-12 border border-white/10 backdrop-blur-sm border-dashed rounded-3xl text-neutral-500 text-sm">
+            <div className="text-center py-12 border border-neutral-200 bg-white/70 backdrop-blur-sm border-dashed rounded-3xl text-neutral-500 font-medium text-sm">
                No API keys configured yet.
             </div>
           ) : (
@@ -257,8 +257,8 @@ export default function SettingsPage() {
                    key={key.id} 
                    className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 p-4 sm:p-5 rounded-3xl border transition-all backdrop-blur-xl ${
                      key.isActive 
-                       ? 'bg-white/10 border-white/20 shadow-lg' 
-                       : 'bg-white/[0.03] border-white/10 hover:bg-white/[0.08] hover:border-white/20'
+                       ? 'bg-white border-purple-300 shadow-md ring-2 ring-purple-100' 
+                       : 'bg-white/80 border-neutral-200/80 hover:bg-white hover:border-neutral-300 shadow-xs'
                    }`}
                  >
                    <div className="flex items-start sm:items-center gap-3 sm:gap-4 w-full sm:w-auto overflow-hidden">
@@ -267,8 +267,8 @@ export default function SettingsPage() {
                        title="Set Active"
                        className={`w-4 h-4 sm:w-5 sm:h-5 shrink-0 rounded-full border flex items-center justify-center transition-colors mt-0.5 sm:mt-0 ${
                          key.isActive 
-                           ? 'border-green-500 bg-green-500/20 text-green-500'
-                           : 'border-neutral-700 hover:border-neutral-500'
+                           ? 'border-emerald-500 bg-emerald-50 text-emerald-600' 
+                           : 'border-neutral-300 hover:border-neutral-500'
                        }`}
                      >
                        {key.isActive && <CheckCircle2 className="w-2.5 h-2.5 sm:w-3 sm:h-3" />}
@@ -276,33 +276,33 @@ export default function SettingsPage() {
                      
                      <div className="min-w-0 flex-1">
                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                         <span className="font-medium text-xs sm:text-sm text-neutral-200">{key.name}</span>
-                         <span className="text-[9px] sm:text-[10px] uppercase tracking-wider bg-neutral-800 text-neutral-400 px-1.5 py-0.5 rounded font-medium">
+                         <span className="font-bold text-xs sm:text-sm text-neutral-900">{key.name}</span>
+                         <span className="text-[9px] sm:text-[10px] uppercase tracking-wider bg-neutral-100 text-neutral-700 px-2 py-0.5 rounded-full font-bold border border-neutral-200">
                            {key.provider || 'elevenlabs'}
                          </span>
                          {key.isActive ? (
-                           <span className="flex items-center gap-1 text-[9px] sm:text-[10px] uppercase tracking-wider bg-green-950/50 text-green-400 px-1.5 py-0.5 rounded font-medium">
+                           <span className="flex items-center gap-1 text-[9px] sm:text-[10px] uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-bold">
                              Active
                            </span>
                          ) : (
-                           <span className="flex items-center gap-1 text-[9px] sm:text-[10px] uppercase tracking-wider bg-neutral-800 text-neutral-400 px-1.5 py-0.5 rounded font-medium">
+                           <span className="flex items-center gap-1 text-[9px] sm:text-[10px] uppercase tracking-wider bg-neutral-100 text-neutral-500 border border-neutral-200 px-2 py-0.5 rounded-full font-bold">
                              Inactive
                            </span>
                          )}
                          {!key.isValid && (
-                            <span className="flex items-center gap-1 text-[9px] sm:text-[10px] uppercase tracking-wider bg-red-950 text-red-400 px-1.5 py-0.5 rounded font-medium">
+                            <span className="flex items-center gap-1 text-[9px] sm:text-[10px] uppercase tracking-wider bg-rose-50 text-rose-700 border border-rose-200 px-2 py-0.5 rounded-full font-bold">
                                <AlertCircle className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> Failed
                             </span>
                          )}
                          {creditsMap[key.id] && (
-                           <span className="text-[9px] sm:text-[10px] bg-neutral-800 text-neutral-300 px-1.5 py-0.5 rounded font-medium flex items-center gap-1">
-                             <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                           <span className="text-[9px] sm:text-[10px] bg-blue-50 text-blue-800 border border-blue-200 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                             <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
                              {creditsMap[key.id]?.total ? `${Math.max(0, creditsMap[key.id]!.total - creditsMap[key.id]!.used).toLocaleString()} / ${creditsMap[key.id]?.total.toLocaleString()} chars` : 'Unlimited'}
-                             <span className="text-neutral-500 ml-1">({creditsMap[key.id]?.tier})</span>
+                             <span className="text-blue-600 ml-1">({creditsMap[key.id]?.tier})</span>
                            </span>
                          )}
-                         <div className="text-[9px] sm:text-[10px] bg-neutral-800/80 text-orange-300 px-1.5 py-0.5 rounded font-medium flex items-center gap-1 border border-orange-500/20">
-                           <span className="w-1.5 h-1.5 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.5)]"></span>
+                         <div className="text-[9px] sm:text-[10px] bg-amber-50 text-amber-800 px-2 py-0.5 rounded-full font-bold flex items-center gap-1 border border-amber-200">
+                           <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]"></span>
                            {editingResetDaysId === key.id ? (
                              <form onSubmit={(e) => {
                                e.preventDefault();
@@ -316,7 +316,7 @@ export default function SettingsPage() {
                                  type="number" min="1" max="99"
                                  value={tempResetDays}
                                  onChange={e => setTempResetDays(e.target.value)}
-                                 className="bg-neutral-900 border border-neutral-700 rounded px-1 w-10 text-center outline-none"
+                                 className="bg-white border border-amber-300 rounded px-1 w-10 text-center outline-none text-neutral-900"
                                  autoFocus
                                  onBlur={() => setEditingResetDaysId(null)}
                                  title="Warning: Modifying this will change when credits are expected to reset."
@@ -329,7 +329,7 @@ export default function SettingsPage() {
                                  setTempResetDays(getRemainingDays(key.resetDate).toString());
                                  setEditingResetDaysId(key.id);
                                }}
-                               className="cursor-pointer hover:text-orange-200 transition-colors"
+                               className="cursor-pointer hover:text-amber-900 transition-colors"
                                title="Click to edit remaining days (resets monthly)"
                              >
                                {getRemainingDays(key.resetDate)} days left
@@ -337,15 +337,15 @@ export default function SettingsPage() {
                            )}
                          </div>
                        </div>
-                       <div className="text-[11px] sm:text-xs text-neutral-600 font-mono mt-1 w-full truncate">
+                       <div className="text-[11px] sm:text-xs text-neutral-500 font-mono mt-1 w-full truncate">
                          ••••••••{key.key.slice(-6)}
                        </div>
                        {/* Voice Selection */}
                        <div className="mt-1.5 sm:mt-2 flex flex-wrap items-center gap-1.5 sm:gap-2 w-full">
-                         <Mic className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-neutral-500" />
+                         <Mic className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-purple-600" />
                          {voicesMap[key.id] ? (
                            <select 
-                             className="bg-black/40 text-neutral-300 text-[11px] sm:text-xs px-3 py-1.5 rounded-lg border border-white/10 w-full sm:w-auto max-w-[180px] sm:max-w-xs focus:outline-none focus:border-white/30"
+                             className="bg-neutral-50 text-neutral-800 text-[11px] sm:text-xs px-3 py-1.5 rounded-xl border border-neutral-200 w-full sm:w-auto max-w-[180px] sm:max-w-xs focus:outline-none focus:border-purple-400 font-medium"
                              value={key.voiceId || 'q109vaFit7lX6QNjx3cW'}
                              onChange={(e) => {
                                const v = voicesMap[key.id].find(v => v.voice_id === e.target.value);
@@ -361,11 +361,11 @@ export default function SettingsPage() {
                            </select>
                          ) : (
                            <div className="flex items-center gap-2">
-                             <span className="text-xs text-neutral-500">{key.voiceName || 'Default Aura Voice'}</span>
+                             <span className="text-xs text-neutral-700 font-semibold">{key.voiceName || 'Default Aura Voice'}</span>
                              <button
                                onClick={() => handleFetchVoices(key.id, key.key, key.provider || 'elevenlabs')}
                                disabled={loadingVoicesMap[key.id]}
-                               className="text-[10px] text-neutral-400 hover:text-white bg-white/5 hover:bg-white/10 px-3 py-1 rounded-lg transition-colors border border-white/5"
+                               className="text-[10px] text-neutral-700 hover:text-neutral-900 bg-neutral-100 hover:bg-neutral-200 px-3 py-1 rounded-lg transition-colors border border-neutral-200 font-semibold"
                              >
                                {loadingVoicesMap[key.id] ? 'Loading...' : 'Select Voice'}
                              </button>
@@ -373,9 +373,9 @@ export default function SettingsPage() {
                          )}
                          <button
                            onClick={() => { setCloneTargetKey(key.id); setShowCloneModal(true); }}
-                           className="text-[10px] text-neutral-400 hover:text-white bg-white/5 hover:bg-white/10 px-3 py-1 flex items-center rounded-lg transition-colors ml-1 border border-white/5"
+                           className="text-[10px] text-neutral-700 hover:text-neutral-900 bg-neutral-100 hover:bg-neutral-200 px-3 py-1 flex items-center rounded-lg transition-colors ml-1 border border-neutral-200 font-semibold"
                          >
-                           <UploadCloud className="w-3 h-3 mr-1" /> Clone Voice
+                           <UploadCloud className="w-3 h-3 mr-1 text-purple-600" /> Clone Voice
                          </button>
                        </div>
                      </div>
@@ -384,14 +384,14 @@ export default function SettingsPage() {
                     <div className="flex items-center justify-end sm:justify-start gap-1 w-full sm:w-auto">
                       <button 
                         onClick={() => handleCopy(key.key)}
-                        className="p-2 sm:p-2.5 text-neutral-400 hover:text-white transition-colors rounded-xl hover:bg-white/10"
+                        className="p-2 sm:p-2.5 text-neutral-500 hover:text-neutral-900 transition-colors rounded-xl hover:bg-neutral-100"
                         title="Copy Key"
                       >
                         <Copy className="w-4 h-4 sm:w-4 sm:h-4" />
                       </button>
                       <button 
                         onClick={() => removeApiKey(key.id)}
-                        className="p-2 sm:p-2.5 text-neutral-400 hover:text-red-400 transition-colors rounded-xl hover:bg-red-500/20 hover:text-red-300"
+                        className="p-2 sm:p-2.5 text-neutral-500 hover:text-rose-600 transition-colors rounded-xl hover:bg-rose-50"
                         title="Remove Key"
                       >
                         <Trash2 className="w-4 h-4 sm:w-4 sm:h-4" />
@@ -406,10 +406,10 @@ export default function SettingsPage() {
 
 
         {/* Combined Voice & Cinematic Profiles */}
-        <div className="space-y-4 pt-4 border-t border-neutral-800/80">
+        <div className="space-y-4 pt-4 border-t border-neutral-200">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <h3 className="text-lg font-medium flex items-center gap-2 text-neutral-300">
-              <Clapperboard className="w-5 h-5" />
+            <h3 className="text-lg font-bold flex items-center gap-2 text-neutral-900">
+              <Clapperboard className="w-5 h-5 text-purple-600" />
               Voice Profile & Settings
             </h3>
             
@@ -419,13 +419,13 @@ export default function SettingsPage() {
                    const name = prompt('Name your custom Voice Profile:');
                    if (name) saveVoiceProfile(name);
                  }}
-                 className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-xs font-medium text-white transition-colors border border-neutral-700/50"
+                 className="flex items-center gap-1 px-3.5 py-1.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-xs font-bold text-white transition-colors shadow-sm"
                >
                  Save Current
                </button>
                <button 
                  onClick={resetToDefaultProfile}
-                 className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-800 text-xs font-medium text-neutral-400 hover:text-white transition-colors border border-neutral-800/50"
+                 className="flex items-center gap-1 px-3.5 py-1.5 rounded-xl bg-white hover:bg-neutral-50 text-xs font-semibold text-neutral-700 transition-colors border border-neutral-200 shadow-xs"
                >
                  <RefreshCw className="w-3 h-3" />
                  Reset Def.
@@ -433,14 +433,14 @@ export default function SettingsPage() {
             </div>
           </div>
           
-          <div className="bg-white/5 border border-white/10 backdrop-blur-2xl shadow-2xl rounded-3xl p-6 md:p-8 space-y-8">
+          <div className="bg-white border border-neutral-200/85 backdrop-blur-2xl shadow-xl rounded-3xl p-6 md:p-8 space-y-8">
             <div>
-              <label className="text-sm font-medium text-neutral-300 block mb-2">Active Voice Preset / Profile</label>
+              <label className="text-sm font-bold text-neutral-800 block mb-2">Active Voice Preset / Profile</label>
               <div className="flex items-center gap-3">
                 <select
                   value={activeProfileId || 'custom'}
                   onChange={(e) => applyVoiceProfile(e.target.value)}
-                  className="flex-1 bg-black/40 border border-white/10 rounded-2xl px-4 py-3 text-sm text-neutral-300 focus:outline-none focus:border-white/30 transition-colors"
+                  className="flex-1 bg-neutral-50 border border-neutral-200 rounded-2xl px-4 py-3 text-sm text-neutral-900 font-medium focus:outline-none focus:border-purple-400 transition-colors"
                 >
                   <option value="custom" disabled className="text-neutral-500">Custom Settings (Unsaved)</option>
                   <optgroup label="Cinematic Presets">
@@ -459,7 +459,7 @@ export default function SettingsPage() {
                 {activeProfileId && voiceProfiles.find(p => p.id === activeProfileId) && (
                    <button 
                      onClick={() => deleteVoiceProfile(activeProfileId)}
-                     className="p-2 text-neutral-500 hover:text-red-400 bg-neutral-950 border border-neutral-800 rounded-xl transition-colors"
+                     className="p-2.5 text-neutral-500 hover:text-rose-600 bg-neutral-50 border border-neutral-200 rounded-xl transition-colors hover:bg-rose-50"
                      title="Delete Custom Profile"
                    >
                      <Trash2 className="w-5 h-5" />
@@ -469,87 +469,87 @@ export default function SettingsPage() {
             </div>
 
             {/* Live Preview Button */}
-            <div className="bg-black/40 rounded-2xl border border-white/10 p-5 backdrop-blur-xl">
+            <div className="bg-purple-50/70 rounded-2xl border border-purple-200/80 p-5 backdrop-blur-xl">
                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div>
-                    <h4 className="text-sm font-medium text-neutral-200 flex items-center gap-2">
-                       <Play className="w-4 h-4 text-green-400" /> Live Voice Preview
+                    <h4 className="text-sm font-bold text-neutral-900 flex items-center gap-2">
+                       <Play className="w-4 h-4 text-emerald-600" /> Live Voice Preview
                     </h4>
-                    <p className="text-xs text-neutral-500 mt-1">Test current settings with a fixed 10-second cinematic script.</p>
+                    <p className="text-xs text-neutral-600 font-medium mt-1">Test current settings with a fixed 10-second cinematic script.</p>
                   </div>
                   <button 
                     onClick={() => handlePreviewVoice()}
                     disabled={isPreviewing}
-                    className="flex w-full sm:w-auto justify-center items-center gap-2 bg-white/90 text-black px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-white transition-all shadow-lg hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
+                    className="flex w-full sm:w-auto justify-center items-center gap-2 bg-neutral-900 text-white px-6 py-2.5 rounded-xl text-sm font-bold hover:bg-neutral-800 transition-all shadow-md hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
                   >
-                    {isPreviewing ? <Loader2 className="w-4 h-4 animate-spin"/> : <Disc3 className="w-4 h-4"/>}
+                    {isPreviewing ? <Loader2 className="w-4 h-4 animate-spin text-white"/> : <Disc3 className="w-4 h-4 text-purple-400"/>}
                     {isPreviewing ? 'Generating...' : 'Generate Preview'}
                   </button>
                </div>
                
                {previewUrl && (
-                  <div className="mt-5 pt-5 border-t border-white/10 flex items-center gap-3">
-                     <audio controls src={previewUrl} className="flex-1 h-10 outline-none [&::-webkit-media-controls-panel]:bg-white/10 [&::-webkit-media-controls-panel]:backdrop-blur-xl rounded-full" />
+                  <div className="mt-5 pt-5 border-t border-purple-200 flex items-center gap-3">
+                     <audio controls src={previewUrl} className="flex-1 h-10 outline-none rounded-full" />
                   </div>
                )}
-               {previewError && <p className="text-xs text-red-400 mt-3 bg-red-500/10 border border-red-500/20 p-3 rounded-xl">{previewError}</p>}
+               {previewError && <p className="text-xs text-rose-700 mt-3 bg-rose-50 border border-rose-200 p-3 rounded-xl font-medium">{previewError}</p>}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-2">
               <div className="space-y-6">
                  <div>
                     <div className="flex justify-between items-center mb-1">
-                      <label className="text-sm font-medium text-neutral-300">Pacing Speed</label>
-                      <span className="text-xs text-neutral-500">{cinematicSettings.speed.toFixed(2)}x</span>
+                      <label className="text-sm font-bold text-neutral-800">Pacing Speed</label>
+                      <span className="text-xs font-mono font-bold text-purple-700">{cinematicSettings.speed.toFixed(2)}x</span>
                     </div>
                     <input 
                       type="range" min="0.80" max="1.10" step="0.01"
                       value={cinematicSettings.speed} onChange={(e) => updateCinematicSettings({ speed: parseFloat(e.target.value) })}
-                      className="w-full accent-neutral-500"
+                      className="w-full accent-purple-600"
                     />
                  </div>
                  <div>
                     <div className="flex justify-between items-center mb-1">
-                      <label className="text-sm font-medium text-neutral-300">Pause Intensity</label>
-                      <span className="text-xs text-neutral-500">{cinematicSettings.pauseIntensity.toFixed(1)}</span>
+                      <label className="text-sm font-bold text-neutral-800">Pause Intensity</label>
+                      <span className="text-xs font-mono font-bold text-purple-700">{cinematicSettings.pauseIntensity.toFixed(1)}</span>
                     </div>
                     <input 
                       type="range" min="0.0" max="2.0" step="0.1"
                       value={cinematicSettings.pauseIntensity} onChange={(e) => updateCinematicSettings({ pauseIntensity: parseFloat(e.target.value) })}
-                      className="w-full accent-neutral-500"
+                      className="w-full accent-purple-600"
                     />
                  </div>
                  <div>
                     <div className="flex justify-between items-center mb-1">
-                      <label className="text-sm font-medium text-neutral-300">Emotional Weight</label>
-                      <span className="text-xs text-neutral-500">{cinematicSettings.emotionControl}</span>
+                      <label className="text-sm font-bold text-neutral-800">Emotional Weight</label>
+                      <span className="text-xs font-mono font-bold text-purple-700">{cinematicSettings.emotionControl}</span>
                     </div>
                     <input 
                       type="range" min="0" max="100" step="1"
                       value={cinematicSettings.emotionControl} onChange={(e) => updateCinematicSettings({ emotionControl: parseInt(e.target.value) })}
-                      className="w-full accent-neutral-500"
+                      className="w-full accent-purple-600"
                     />
                  </div>
                  <div>
                     <div className="flex justify-between items-center mb-1">
-                      <label className="text-sm font-medium text-neutral-300">Cinematic Intensity</label>
-                      <span className="text-xs text-neutral-500">{cinematicSettings.cinematicIntensity}</span>
+                      <label className="text-sm font-bold text-neutral-800">Cinematic Intensity</label>
+                      <span className="text-xs font-mono font-bold text-purple-700">{cinematicSettings.cinematicIntensity}</span>
                     </div>
                     <input 
                       type="range" min="0" max="100" step="1"
                       value={cinematicSettings.cinematicIntensity} onChange={(e) => updateCinematicSettings({ cinematicIntensity: parseInt(e.target.value) })}
-                      className="w-full accent-neutral-500"
+                      className="w-full accent-purple-600"
                     />
                  </div>
                  <div>
                     <div className="flex justify-between items-center mb-1">
-                      <label className="text-sm font-medium text-neutral-300">Realism Level</label>
-                      <span className="text-xs text-neutral-500">{cinematicSettings.realism}</span>
+                      <label className="text-sm font-bold text-neutral-800">Realism Level</label>
+                      <span className="text-xs font-mono font-bold text-purple-700">{cinematicSettings.realism}</span>
                     </div>
                     <input 
                       type="range" min="0" max="100" step="1"
                       value={cinematicSettings.realism} onChange={(e) => updateCinematicSettings({ realism: parseInt(e.target.value) })}
-                      className="w-full accent-neutral-500"
+                      className="w-full accent-purple-600"
                     />
                  </div>
               </div>
@@ -557,44 +557,44 @@ export default function SettingsPage() {
               <div className="space-y-6">
                  <div>
                     <div className="flex justify-between items-center mb-1">
-                      <label className="text-sm font-medium text-neutral-300">Narration Energy</label>
-                      <span className="text-xs text-neutral-500">{cinematicSettings.narrationEnergy}</span>
+                      <label className="text-sm font-bold text-neutral-800">Narration Energy</label>
+                      <span className="text-xs font-mono font-bold text-purple-700">{cinematicSettings.narrationEnergy}</span>
                     </div>
                     <input 
                       type="range" min="0" max="100" step="1"
                       value={cinematicSettings.narrationEnergy} onChange={(e) => updateCinematicSettings({ narrationEnergy: parseInt(e.target.value) })}
-                      className="w-full accent-neutral-500"
+                      className="w-full accent-purple-600"
                     />
                  </div>
                  <div>
                     <div className="flex justify-between items-center mb-1">
-                      <label className="text-sm font-medium text-neutral-300">Diction Clarity</label>
-                      <span className="text-xs text-neutral-500">{cinematicSettings.dictionClarity}</span>
+                      <label className="text-sm font-bold text-neutral-800">Diction Clarity</label>
+                      <span className="text-xs font-mono font-bold text-purple-700">{cinematicSettings.dictionClarity}</span>
                     </div>
                     <input 
                       type="range" min="0" max="100" step="1"
                       value={cinematicSettings.dictionClarity} onChange={(e) => updateCinematicSettings({ dictionClarity: parseInt(e.target.value) })}
-                      className="w-full accent-neutral-500"
+                      className="w-full accent-purple-600"
                     />
                  </div>
                  <div>
                     <div className="flex justify-between items-center mb-1">
-                      <label className="text-sm font-medium text-neutral-300">Storytelling Tension</label>
-                      <span className="text-xs text-neutral-500">{cinematicSettings.storytellingTension}</span>
+                      <label className="text-sm font-bold text-neutral-800">Storytelling Tension</label>
+                      <span className="text-xs font-mono font-bold text-purple-700">{cinematicSettings.storytellingTension}</span>
                     </div>
                     <input 
                       type="range" min="0" max="100" step="1"
                       value={cinematicSettings.storytellingTension} onChange={(e) => updateCinematicSettings({ storytellingTension: parseInt(e.target.value) })}
-                      className="w-full accent-neutral-500"
+                      className="w-full accent-purple-600"
                     />
                  </div>
                  
                  <div className="pt-2">
-                    <label className="text-sm font-medium text-neutral-300 block mb-2">Style Sub-Genre</label>
+                    <label className="text-sm font-bold text-neutral-800 block mb-2">Style Sub-Genre</label>
                     <select
                       value={cinematicSettings.storytellingMode}
                       onChange={(e) => updateCinematicSettings({ storytellingMode: e.target.value as any })}
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-neutral-300 focus:outline-none focus:border-neutral-600 transition-colors"
+                      className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2.5 text-sm text-neutral-900 font-medium focus:outline-none focus:border-purple-400 transition-colors"
                     >
                       <option value="documentary">Documentary</option>
                       <option value="mystery">Mystery</option>
@@ -608,18 +608,18 @@ export default function SettingsPage() {
             </div>
             
             {/* Toggles */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-neutral-800/80 pt-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-neutral-200 pt-6">
                 <div className="flex items-center gap-3">
-                  <input type="checkbox" id="emphasis-engine" checked={cinematicSettings.emphasisEngine} onChange={(e) => updateCinematicSettings({ emphasisEngine: e.target.checked })} className="w-4 h-4 rounded appearance-none border border-neutral-700 bg-neutral-900 checked:bg-white checked:border-white transition-colors relative after:content-[''] after:absolute after:hidden checked:after:block after:left-[4px] after:top-[1px] after:w-[6px] after:h-[10px] after:border-r-2 after:border-b-2 after:border-black after:rotate-45 shrink-0" />
-                  <label htmlFor="emphasis-engine" className="text-sm font-medium text-neutral-300 cursor-pointer">Emphasis Engine <span className="block text-[11px] text-neutral-500 font-normal">Auto-emphasize tension words.</span></label>
+                  <input type="checkbox" id="emphasis-engine" checked={cinematicSettings.emphasisEngine} onChange={(e) => updateCinematicSettings({ emphasisEngine: e.target.checked })} className="w-4 h-4 rounded accent-purple-600 cursor-pointer shrink-0" />
+                  <label htmlFor="emphasis-engine" className="text-sm font-bold text-neutral-800 cursor-pointer">Emphasis Engine <span className="block text-[11px] text-neutral-500 font-normal">Auto-emphasize tension words.</span></label>
                 </div>
                 <div className="flex items-center gap-3">
-                  <input type="checkbox" id="human-imperfection" checked={cinematicSettings.humanImperfection} onChange={(e) => updateCinematicSettings({ humanImperfection: e.target.checked })} className="w-4 h-4 rounded appearance-none border border-neutral-700 bg-neutral-900 checked:bg-white checked:border-white transition-colors relative after:content-[''] after:absolute after:hidden checked:after:block after:left-[4px] after:top-[1px] after:w-[6px] after:h-[10px] after:border-r-2 after:border-b-2 after:border-black after:rotate-45 shrink-0" />
-                  <label htmlFor="human-imperfection" className="text-sm font-medium text-neutral-300 cursor-pointer">Human Imperfections <span className="block text-[11px] text-neutral-500 font-normal">Add subtle realism hesitations.</span></label>
+                  <input type="checkbox" id="human-imperfection" checked={cinematicSettings.humanImperfection} onChange={(e) => updateCinematicSettings({ humanImperfection: e.target.checked })} className="w-4 h-4 rounded accent-purple-600 cursor-pointer shrink-0" />
+                  <label htmlFor="human-imperfection" className="text-sm font-bold text-neutral-800 cursor-pointer">Human Imperfections <span className="block text-[11px] text-neutral-500 font-normal">Add subtle realism hesitations.</span></label>
                 </div>
                 <div className="flex items-center gap-3">
-                  <input type="checkbox" id="clarity-boost" checked={cinematicSettings.clarityBoost} onChange={(e) => updateCinematicSettings({ clarityBoost: e.target.checked })} className="w-4 h-4 rounded appearance-none border border-neutral-700 bg-neutral-900 checked:bg-white checked:border-white transition-colors relative after:content-[''] after:absolute after:hidden checked:after:block after:left-[4px] after:top-[1px] after:w-[6px] after:h-[10px] after:border-r-2 after:border-b-2 after:border-black after:rotate-45 shrink-0" />
-                  <label htmlFor="clarity-boost" className="text-sm font-medium text-neutral-300 cursor-pointer">Clarity Boost <span className="block text-[11px] text-neutral-500 font-normal">Optimize pronunciation.</span></label>
+                  <input type="checkbox" id="clarity-boost" checked={cinematicSettings.clarityBoost} onChange={(e) => updateCinematicSettings({ clarityBoost: e.target.checked })} className="w-4 h-4 rounded accent-purple-600 cursor-pointer shrink-0" />
+                  <label htmlFor="clarity-boost" className="text-sm font-bold text-neutral-800 cursor-pointer">Clarity Boost <span className="block text-[11px] text-neutral-500 font-normal">Optimize pronunciation.</span></label>
                 </div>
             </div>
           </div>
@@ -629,41 +629,41 @@ export default function SettingsPage() {
 
       {/* Voice Cloning Modal */}
       {showCloneModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white/10 border border-white/20 backdrop-blur-2xl rounded-3xl w-full max-w-md p-6 relative shadow-2xl">
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white border border-neutral-200 rounded-3xl w-full max-w-md p-6 relative shadow-2xl">
             <button 
               onClick={() => setShowCloneModal(false)}
-              className="absolute top-6 right-6 text-neutral-400 hover:text-white transition-colors"
+              className="absolute top-6 right-6 text-neutral-400 hover:text-neutral-800 transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
-            <h3 className="text-xl font-medium mb-6 flex items-center gap-2 text-white/90">
-              <UploadCloud className="w-5 h-5" /> Clone Voice
+            <h3 className="text-xl font-bold mb-6 flex items-center gap-2 text-neutral-900">
+              <UploadCloud className="w-5 h-5 text-purple-600" /> Clone Voice
             </h3>
             
             <form onSubmit={handleCloneSubmit} className="space-y-4">
               <div>
-                <label className="text-sm font-medium text-neutral-300 block mb-2">Voice Name</label>
+                <label className="text-sm font-bold text-neutral-800 block mb-2">Voice Name</label>
                 <input 
                   type="text" 
                   value={cloneName}
                   onChange={e => setCloneName(e.target.value)}
-                  className="w-full bg-black/40 border border-white/10 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-white/30 transition-colors text-white/90"
+                  className="w-full bg-neutral-50 border border-neutral-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-purple-400 transition-colors text-neutral-900 font-medium"
                   required
                 />
               </div>
               
               <div>
-                <label className="text-sm font-medium text-neutral-300 block mb-2">Description (Optional)</label>
+                <label className="text-sm font-bold text-neutral-800 block mb-2">Description (Optional)</label>
                 <textarea 
                   value={cloneDesc}
                   onChange={e => setCloneDesc(e.target.value)}
-                  className="w-full bg-black/40 border border-white/10 rounded-2xl px-4 py-3 text-sm h-24 resize-none focus:outline-none focus:border-white/30 transition-colors text-white/90"
+                  className="w-full bg-neutral-50 border border-neutral-200 rounded-2xl px-4 py-3 text-sm h-24 resize-none focus:outline-none focus:border-purple-400 transition-colors text-neutral-900 font-medium"
                 />
               </div>
               
               <div>
-                <label className="text-sm font-medium text-neutral-300 block mb-2">Audio Samples (Max 10MB)</label>
+                <label className="text-sm font-bold text-neutral-800 block mb-2">Audio Samples (Max 10MB)</label>
                 <input 
                   type="file" 
                   multiple 
@@ -677,18 +677,18 @@ export default function SettingsPage() {
                       setCloneError("");
                     }
                   }}
-                  className="w-full text-sm text-neutral-400 file:mr-4 file:py-2.5 file:px-5 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-white/10 file:text-white hover:file:bg-white/20 transition-all cursor-pointer"
+                  className="w-full text-sm text-neutral-600 file:mr-4 file:py-2.5 file:px-5 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-neutral-900 file:text-white hover:file:bg-neutral-800 transition-all cursor-pointer"
                   required
                 />
               </div>
               
-              {cloneError && <p className="text-sm text-red-400 mt-2 bg-red-500/10 p-3 rounded-xl border border-red-500/20">{cloneError}</p>}
-              {cloneSuccess && <p className="text-sm text-green-400 mt-2 bg-green-500/10 p-3 rounded-xl border border-green-500/20">{cloneSuccess}</p>}
+              {cloneError && <p className="text-sm text-rose-700 mt-2 bg-rose-50 p-3 rounded-xl border border-rose-200 font-medium">{cloneError}</p>}
+              {cloneSuccess && <p className="text-sm text-emerald-700 mt-2 bg-emerald-50 p-3 rounded-xl border border-emerald-200 font-medium">{cloneSuccess}</p>}
               
               <button 
                 type="submit"
                 disabled={isCloning || cloneFiles.length === 0}
-                className="w-full bg-white/90 text-black py-3.5 rounded-2xl text-sm font-semibold hover:bg-white transition-all mt-6 disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg hover:scale-[1.02] active:scale-[0.98] disabled:hover:scale-100"
+                className="w-full bg-neutral-900 text-white py-3.5 rounded-2xl text-sm font-bold hover:bg-neutral-800 transition-all mt-6 disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg hover:scale-[1.02] active:scale-[0.98] disabled:hover:scale-100"
               >
                 {isCloning ? <Loader2 className="w-5 h-5 animate-spin" /> : <UploadCloud className="w-5 h-5" />}
                 {isCloning ? 'Cloning...' : 'Clone Voice'}

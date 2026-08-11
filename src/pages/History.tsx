@@ -85,7 +85,7 @@ export default function HistoryPage() {
                     <input
                       type="text"
                       autoFocus
-                      className="bg-neutral-800 text-white px-2 py-1 rounded border border-neutral-700 text-sm focus:outline-none focus:border-neutral-500 w-full mb-1"
+                      className="bg-neutral-50 text-neutral-900 px-3 py-1.5 rounded-xl border border-neutral-300 text-sm focus:outline-none focus:border-purple-400 w-full mb-1 font-bold"
                       value={editValue}
                       onChange={(e) => setEditValue(e.target.value)}
                       onBlur={() => {
@@ -103,7 +103,7 @@ export default function HistoryPage() {
                     />
                   ) : (
                     <h4 
-                      className="font-medium text-neutral-200 truncate pr-4 cursor-pointer hover:text-white group/title flex items-center gap-2 w-max"
+                      className="font-bold text-neutral-900 truncate pr-4 cursor-pointer hover:text-purple-600 group/title flex items-center gap-2 w-max text-base"
                       onClick={() => {
                         setEditingId(project.id);
                         setEditingType('title');
@@ -115,13 +115,13 @@ export default function HistoryPage() {
                     </h4>
                   )}
                   <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-500 font-mono">
-                    <span className="flex items-center gap-1.5"><Calendar className="w-3 h-3"/> {formatDate(project.createdAt)}</span>
+                    <span className="flex items-center gap-1.5"><Calendar className="w-3 h-3 text-neutral-400"/> {formatDate(project.createdAt)}</span>
                     {project.voiceName && (
                       editingId === project.id && editingType === 'voice' ? (
                         <input
                           type="text"
                           autoFocus
-                          className="bg-neutral-800 text-white px-1.5 py-0.5 rounded border border-neutral-700 text-xs focus:outline-none focus:border-neutral-500 w-32"
+                          className="bg-neutral-50 text-neutral-900 px-2 py-0.5 rounded-lg border border-neutral-300 text-xs focus:outline-none focus:border-purple-400 w-36 font-semibold"
                           value={editValue}
                           onChange={(e) => setEditValue(e.target.value)}
                           onBlur={() => {
@@ -139,7 +139,7 @@ export default function HistoryPage() {
                         />
                       ) : (
                         <span 
-                          className="flex items-center gap-1.5 cursor-pointer hover:text-neutral-300 group/voice transition-colors"
+                          className="flex items-center gap-1.5 cursor-pointer text-neutral-700 hover:text-purple-600 font-sans font-semibold group/voice transition-colors bg-neutral-100 px-2 py-0.5 rounded-md border border-neutral-200/60"
                           onClick={(e) => {
                             e.stopPropagation();
                             setEditingId(project.id);
@@ -147,8 +147,8 @@ export default function HistoryPage() {
                             setEditValue(project.voiceName || '');
                           }}
                         >
-                          <Mic className="w-3 h-3"/> {project.voiceName}
-                          <Edit2 className="w-3 h-3 opacity-0 group-hover/voice:opacity-100 transition-opacity" />
+                          <Mic className="w-3 h-3 text-purple-600"/> {project.voiceName}
+                          <Edit2 className="w-3 h-3 opacity-0 group-hover/voice:opacity-100 transition-opacity text-neutral-400" />
                         </span>
                       )
                     )}
@@ -156,11 +156,11 @@ export default function HistoryPage() {
                 </div>
                 
                 <div className="flex items-center gap-2 w-full sm:w-auto pt-2 sm:pt-0">
-                  <audio controls src={project.audioUrl} className="h-9 flex-1 sm:w-48 min-w-0 outline-none [&::-webkit-media-controls-panel]:bg-neutral-800" />
+                  <audio controls src={project.audioUrl} className="h-9 flex-1 sm:w-48 min-w-0 outline-none rounded-full" />
                   
                   <button 
                     onClick={() => handleOpenProject(project)}
-                    className="p-2 ml-2 text-neutral-400 hover:text-white bg-neutral-800 hover:bg-neutral-700 rounded-lg transition-colors"
+                    className="p-2 ml-2 text-neutral-600 hover:text-neutral-900 bg-neutral-100 hover:bg-neutral-200 rounded-xl transition-colors border border-neutral-200"
                     title="Load Project Settings & Script"
                   >
                     <RotateCcw className="w-4 h-4" />
@@ -168,7 +168,8 @@ export default function HistoryPage() {
 
                   <button 
                     onClick={() => deleteProject(project.id)}
-                    className="p-2 text-neutral-500 hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-colors"
+                    className="p-2 text-neutral-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
+                    title="Delete Project"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>

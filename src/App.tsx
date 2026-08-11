@@ -37,7 +37,7 @@ function Layout({ children }: { children: React.ReactNode }) {
               <Mic2 className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="font-extrabold text-xl md:text-lg tracking-tight text-neutral-900">Aura Voice <span className="font-serif italic font-normal text-purple-600">Studio</span></h1>
+              <h1 className="font-extrabold text-xl md:text-lg tracking-tight text-neutral-900">Awavox <span className="font-serif italic font-normal text-purple-600">AI</span></h1>
             </div>
             <span className="ml-1 md:ml-3 px-2.5 py-1 rounded-full bg-purple-50 border border-purple-200/80 text-[10px] font-bold tracking-widest text-purple-700 uppercase hidden sm:inline-block shadow-2xs">
               TTS Pro

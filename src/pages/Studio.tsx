@@ -85,9 +85,9 @@ export default function StudioPage() {
       <div className="space-y-3 text-center md:text-left flex flex-col items-center md:items-start pt-4">
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-100 border border-purple-200 text-purple-800 text-xs font-bold tracking-wide uppercase shadow-2xs">
           <Sparkles className="w-3.5 h-3.5 text-purple-600 animate-pulse" />
-          Aura Voice AI Studio
+          Awavox AI Studio
         </div>
-        <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight text-neutral-900">Work Smarter, <span className="font-serif italic font-normal text-purple-600">Not Harder</span></h2>
+        <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight text-neutral-900">Bring Words, <span className="font-serif italic font-normal text-purple-600">To Life</span></h2>
         <p className="text-neutral-600 font-medium text-sm md:text-base max-w-xl leading-relaxed">
           Unlimited voice generation and cloning. Write or paste your script below to experience the next generation of voice AI.
         </p>

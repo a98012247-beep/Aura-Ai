@@ -241,7 +241,7 @@ export default function VoiceLibraryPage() {
 
                 <div className="flex-1">
                   {voice.description && (
-                    <p className="text-sm text-neutral-400 line-clamp-2 mb-4 leading-relaxed">
+                    <p className="text-sm text-neutral-600 font-medium line-clamp-2 mb-4 leading-relaxed">
                       {voice.description}
                     </p>
                   )}
@@ -251,7 +251,7 @@ export default function VoiceLibraryPage() {
                       {Object.entries(voice.labels).slice(0, 4).map(([key, value]) => (
                         <span 
                           key={key} 
-                          className="px-2.5 py-1 rounded-md bg-white/[0.03] border border-white/5 text-[10px] font-medium text-neutral-400 uppercase tracking-wider"
+                          className="px-2.5 py-1 rounded-md bg-neutral-100 border border-neutral-200/80 text-[10px] font-bold text-neutral-700 uppercase tracking-wider"
                         >
                           {String(value)}
                         </span>

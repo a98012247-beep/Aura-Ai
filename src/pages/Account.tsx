@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { LogIn, LogOut, Cloud, CloudUpload, CloudDownload } from 'lucide-react';
+import { LogIn, LogOut, Cloud, CloudUpload, CloudDownload, User } from 'lucide-react';
 import { useAuthStore } from '../store/auth';
 import { signInWithGoogle, signOut, db } from '../lib/firebase';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
@@ -131,7 +131,7 @@ export default function AccountPage() {
       <div className="mb-8 flex items-center justify-between">
          <div>
            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-100 border border-blue-200 text-blue-800 text-xs font-bold tracking-wide uppercase shadow-2xs mb-3">
-             <UserIcon className="w-3.5 h-3.5 text-blue-600" />
+             <User className="w-3.5 h-3.5 text-blue-600" />
              User Account
            </div>
            <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight text-neutral-900 mb-2">Account & <span className="font-serif italic font-normal text-blue-600">Sync</span></h2>
@@ -157,36 +157,36 @@ export default function AccountPage() {
             <button
                onClick={handleSaveToCloud}
                disabled={syncing || isAutoSyncing}
-               className="flex-1 flex items-center justify-center gap-2 bg-white/90 hover:bg-white disabled:opacity-50 text-black px-6 py-3 rounded-2xl font-medium text-sm transition-all shadow-lg hover:scale-105 active:scale-95"
+               className="flex-1 flex items-center justify-center gap-2 bg-neutral-900 hover:bg-neutral-800 disabled:opacity-50 text-white px-6 py-3 rounded-2xl font-bold text-sm transition-all shadow-md hover:scale-105 active:scale-95"
             >
-               <CloudUpload className="w-4 h-4" />
+               <CloudUpload className="w-4 h-4 text-purple-400" />
                Save to Cloud
             </button>
             <button
                onClick={handleLoadFromCloud}
                disabled={syncing || isAutoSyncing}
-               className="flex-1 flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 disabled:opacity-50 text-white px-6 py-3 rounded-2xl font-medium text-sm transition-all border border-white/10 hover:scale-105 active:scale-95"
+               className="flex-1 flex items-center justify-center gap-2 bg-white hover:bg-neutral-50 disabled:opacity-50 text-neutral-800 px-6 py-3 rounded-2xl font-bold text-sm transition-all border border-neutral-200 shadow-xs hover:scale-105 active:scale-95"
             >
-               <CloudDownload className="w-4 h-4" />
+               <CloudDownload className="w-4 h-4 text-blue-600" />
                Load from Cloud
             </button>
          </div>
 
-         <div className="flex items-center justify-between w-full max-w-md bg-black/40 border border-white/10 p-4 rounded-2xl mt-2 backdrop-blur-xl">
+         <div className="flex items-center justify-between w-full max-w-md bg-neutral-50 border border-neutral-200/80 p-4 rounded-2xl mt-2 backdrop-blur-xl">
            <div className="text-left flex flex-col justify-center">
-             <h4 className="text-sm font-medium text-white mb-0.5 max-h-min py-0">Auto-Save Options</h4>
-             <p className="text-xs text-neutral-400">Silently backup settings and api keys upon change</p>
+             <h4 className="text-sm font-bold text-neutral-900 mb-0.5 max-h-min py-0">Auto-Save Options</h4>
+             <p className="text-xs text-neutral-500 font-medium">Silently backup settings and API keys upon change</p>
            </div>
            <button
              onClick={() => setAutoSaveEnabled(!autoSaveEnabled)}
-             className={`w-11 h-6 rounded-full transition-colors relative ${autoSaveEnabled ? 'bg-blue-600' : 'bg-neutral-600'}`}
+             className={`w-11 h-6 rounded-full transition-colors relative ${autoSaveEnabled ? 'bg-blue-600' : 'bg-neutral-300'}`}
            >
              <span className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform ${autoSaveEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
            </button>
          </div>
 
          {syncMessage && (
-            <p className="text-sm text-blue-400 font-medium animate-in fade-in">{syncMessage}</p>
+            <p className="text-sm text-blue-600 font-bold animate-in fade-in">{syncMessage}</p>
          )}
 
          {(lastSyncedAt || isAutoSyncing) && (
