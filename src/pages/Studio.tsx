@@ -1,15 +1,21 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useGenerationStore } from '../store/generation';
 import { Play, Download, Loader2, Disc3, RotateCcw, Mic, Sparkles } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useSettingsStore, PRESET_PROFILES } from '../store/settings';
 import { useProjectsStore } from '../store/projects';
+import { useAuthStore } from '../store/auth';
+import { SubscriptionPopup } from '../components/SubscriptionPopup';
 import { motion } from 'motion/react';
 
 export default function StudioPage() {
   const { draftScript, updateDraftScript } = useProjectsStore();
   const text = draftScript;
   const setText = updateDraftScript;
+  const { memberProfile } = useAuthStore();
+  const [showSubscription, setShowSubscription] = useState(false);
+
+  const isPro = memberProfile?.status === 'active' || memberProfile?.role === 'admin';
 
   const { isGenerating, progress, error, finalAudioUrl, generate, currentChunk, totalChunks, statusText, reset } = useGenerationStore();
   const getActiveKey = useSettingsStore(state => state.getActiveKey);
@@ -70,6 +76,10 @@ export default function StudioPage() {
   const charCount = text.length;
 
   const handleGenerate = () => {
+    if (!isPro) {
+      setShowSubscription(true);
+      return;
+    }
     generate(text);
   };
 
@@ -80,6 +90,7 @@ export default function StudioPage() {
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
       className="flex-1 max-w-4xl w-full mx-auto p-4 md:p-8 flex flex-col gap-8"
     >
+      <SubscriptionPopup isOpen={showSubscription} onClose={() => setShowSubscription(false)} />
       
       {/* Header Area */}
       <div className="space-y-3 text-center md:text-left flex flex-col items-center md:items-start pt-4">
@@ -134,8 +145,8 @@ export default function StudioPage() {
             spellCheck="false"
           />
           
-          {/* Desktop Generate Button */}
-          <div className="hidden md:block absolute bottom-6 right-6 z-10 pointer-events-none">
+          {/* Generate Button */}
+          <div className="absolute bottom-6 right-6 z-10 pointer-events-none">
              <button 
                onClick={handleGenerate}
                disabled={isGenerating || charCount === 0}
@@ -154,27 +165,6 @@ export default function StudioPage() {
                )}
              </button>
           </div>
-        </div>
-        
-        {/* Mobile Generate Button */}
-        <div className="md:hidden mt-4 w-full pointer-events-none">
-           <button 
-             onClick={handleGenerate}
-             disabled={isGenerating || charCount === 0}
-             className="pointer-events-auto w-full flex items-center justify-center gap-2 bg-neutral-900 text-white px-6 py-4 rounded-2xl text-[15px] font-bold shadow-lg hover:bg-neutral-800 transition-all"
-           >
-             {isGenerating ? (
-               <>
-                 <Loader2 className="w-5 h-5 animate-spin" />
-                 Generating...
-               </>
-             ) : (
-               <>
-                 <Disc3 className="w-5 h-5 text-purple-400" />
-                 Generate Audio
-               </>
-             )}
-           </button>
         </div>
       </div>
 

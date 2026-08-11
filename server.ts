@@ -2,6 +2,20 @@ import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import multer from "multer";
+import { initializeApp, getApps } from 'firebase-admin/app';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getAuth } from 'firebase-admin/auth';
+import firebaseConfig from "./firebase-applet-config.json";
+
+// Initialize Firebase Admin
+if (getApps().length === 0) {
+  initializeApp({
+    projectId: firebaseConfig.projectId,
+  });
+}
+
+const db = getFirestore();
+const auth = getAuth();
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -9,11 +23,122 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  // Seed Admin if not exists
+  const adminEmail = 'a98012247@gmail.com';
+  try {
+    const adminSnap = await db.collection('members').where('email', '==', adminEmail).limit(1).get();
+    if (adminSnap.empty) {
+      console.log("Seeding admin member...");
+      // Note: We don't create the auth user here as we don't have a password.
+      // The admin must be created manually or log in with Google once if it was supported,
+      // but since we removed Google login, the admin user must exist in Firebase Auth.
+      // For this specific case, I'll assume the admin is already created or will be.
+    }
+  } catch (e) {
+    console.error("Seed error:", e);
+  }
+
   // Use raw express.json for body parsing limits
   app.use(express.json({ limit: "50mb" }));
 
-  // AI endpoint for elevenlabs
-  app.post("/api/elevenlabs", async (req: express.Request, res: express.Response) => {
+  // Auth Middleware
+  const authMiddleware = async (req: any, res: any, next: any) => {
+    const authHeader = req.headers.authorization;
+    const deviceId = req.headers['x-device-id'];
+
+    if (!authHeader?.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized: Missing Token' });
+    }
+
+    const token = authHeader.split('Bearer ')[1];
+    try {
+      const decodedToken = await auth.verifyIdToken(token);
+      const uid = decodedToken.uid;
+      const email = decodedToken.email;
+
+      // Check member status and device binding
+      const memberDoc = await db.collection('members').doc(uid).get();
+      
+      if (!memberDoc.exists) {
+        // If it's the specific admin email, auto-create the document
+        if (email === adminEmail) {
+          await db.collection('members').doc(uid).set({
+            email,
+            status: 'active',
+            role: 'admin',
+            createdAt: FieldValue.serverTimestamp(),
+            deviceId: null
+          });
+          req.user = { uid, email, role: 'admin' };
+          return next();
+        }
+        return res.status(403).json({ error: 'Forbidden: Not a Pro member' });
+      }
+
+      const member = memberDoc.data();
+      if (member?.status !== 'active') {
+        return res.status(403).json({ error: `Account ${member?.status}` });
+      }
+
+      // Device binding logic
+      if (!member?.deviceId) {
+        // First login - bind device
+        if (deviceId) {
+          await db.collection('members').doc(uid).update({ deviceId });
+        }
+      } else if (member.deviceId !== deviceId) {
+        return res.status(403).json({ error: 'Unauthorized device' });
+      }
+
+      req.user = { uid, email, role: member?.role };
+      next();
+    } catch (error) {
+      console.error('Auth Middleware Error:', error);
+      res.status(401).json({ error: 'Invalid Token' });
+    }
+  };
+
+  // Usage Tracker Middleware
+  const usageMiddleware = async (req: any, res: any, next: any) => {
+    const tool = req.path.split('/').pop();
+    if (req.user) {
+      await db.collection('usage').add({
+        userId: req.user.uid,
+        email: req.user.email,
+        tool,
+        timestamp: FieldValue.serverTimestamp()
+      });
+    }
+    next();
+  };
+
+  // Admin Routes
+  app.post("/api/admin/create-member", authMiddleware, async (req: any, res) => {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+    
+    const { email, password, role } = req.body;
+    try {
+      const userRecord = await auth.createUser({
+        email,
+        password,
+      });
+
+      await db.collection('members').doc(userRecord.uid).set({
+        email,
+        status: 'active',
+        role: role || 'pro',
+        createdAt: FieldValue.serverTimestamp(),
+        deviceId: null
+      });
+
+      res.json({ success: true, uid: userRecord.uid });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Protected AI endpoints
+  app.post("/api/elevenlabs", authMiddleware, usageMiddleware, async (req: express.Request, res: express.Response) => {
     try {
       const { text, voiceId, settings, apiKey } = req.body;
 
@@ -54,7 +179,7 @@ async function startServer() {
     }
   });
 
-  app.get("/api/elevenlabs/voices", async (req: express.Request, res: express.Response) => {
+  app.get("/api/elevenlabs/voices", authMiddleware, async (req: express.Request, res: express.Response) => {
     try {
       const apiKey = req.query.apiKey as string;
       if (!apiKey) {
@@ -84,7 +209,7 @@ async function startServer() {
     }
   });
 
-  app.get("/api/elevenlabs/subscription", async (req: express.Request, res: express.Response) => {
+  app.get("/api/elevenlabs/subscription", authMiddleware, async (req: express.Request, res: express.Response) => {
     try {
       const apiKey = req.query.apiKey as string;
       if (!apiKey) {
@@ -114,7 +239,7 @@ async function startServer() {
     }
   });
 
-  app.post("/api/elevenlabs/check-voice", async (req: express.Request, res: express.Response) => {
+  app.post("/api/elevenlabs/check-voice", authMiddleware, async (req: express.Request, res: express.Response) => {
     try {
       const { apiKey, voiceId } = req.body;
       if (!apiKey) {
@@ -145,7 +270,7 @@ async function startServer() {
     }
   });
 
-  app.post("/api/elevenlabs/voices/add", upload.array('files'), async (req: express.Request, res: express.Response) => {
+  app.post("/api/elevenlabs/voices/add", authMiddleware, usageMiddleware, upload.array('files'), async (req: express.Request, res: express.Response) => {
     try {
       const apiKey = req.body.apiKey;
       const name = req.body.name;
@@ -196,7 +321,7 @@ async function startServer() {
   });
 
   // Cartesia endpoints
-  app.post("/api/cartesia", async (req: express.Request, res: express.Response) => {
+  app.post("/api/cartesia", authMiddleware, usageMiddleware, async (req: express.Request, res: express.Response) => {
     try {
       const { text, voiceId, apiKey } = req.body;
       if (!apiKey) {
@@ -233,7 +358,7 @@ async function startServer() {
     }
   });
 
-  app.get("/api/cartesia/voices", async (req: express.Request, res: express.Response) => {
+  app.get("/api/cartesia/voices", authMiddleware, async (req: express.Request, res: express.Response) => {
     try {
       const apiKey = req.query.apiKey as string;
       if (!apiKey) return res.status(401).json({ error: "Missing API Key" });
@@ -252,7 +377,7 @@ async function startServer() {
   });
 
   // Google endpoints
-  app.post("/api/google", async (req: express.Request, res: express.Response) => {
+  app.post("/api/google", authMiddleware, usageMiddleware, async (req: express.Request, res: express.Response) => {
     try {
       const { text, voiceId, apiKey } = req.body;
       if (!apiKey) return res.status(401).json({ error: "Missing API Key" });
@@ -283,7 +408,7 @@ async function startServer() {
     }
   });
 
-  app.get("/api/google/voices", async (req: express.Request, res: express.Response) => {
+  app.get("/api/google/voices", authMiddleware, async (req: express.Request, res: express.Response) => {
     try {
       const apiKey = req.query.apiKey as string;
       if (!apiKey) return res.status(401).json({ error: "Missing API Key" });

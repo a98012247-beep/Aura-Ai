@@ -1,0 +1,32 @@
+{
+  "collections": {
+    "members": {
+      "description": "Registered pro members and their status",
+      "fields": {
+        "email": { "type": "string", "description": "Member email" },
+        "status": { "type": "string", "description": "active, suspended, or revoked" },
+        "deviceId": { "type": "string", "description": "Bound device ID", "nullable": true },
+        "role": { "type": "string", "description": "admin or pro" },
+        "createdAt": { "type": "timestamp" },
+        "lastLoginAt": { "type": "timestamp", "nullable": true }
+      }
+    },
+    "usage": {
+      "description": "Tracks usage of tools by members",
+      "fields": {
+        "userId": { "type": "string" },
+        "email": { "type": "string" },
+        "tool": { "type": "string" },
+        "timestamp": { "type": "timestamp" }
+      }
+    },
+    "earnings": {
+      "description": "Financial records added by admin",
+      "fields": {
+        "amount": { "type": "number" },
+        "description": { "type": "string" },
+        "timestamp": { "type": "timestamp" }
+      }
+    }
+  }
+}

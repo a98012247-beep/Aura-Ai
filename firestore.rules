@@ -13,12 +13,25 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    match /users/{userId} {
-      allow get: if isOwner(userId);
-      allow list: if false; 
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId);
-      allow delete: if false;
+    function isAdmin() {
+      return isSignedIn() && (
+        get(/databases/$(database)/documents/members/$(request.auth.uid)).data.role == 'admin' ||
+        request.auth.token.email == 'a98012247@gmail.com'
+      );
+    }
+
+    match /members/{memberId} {
+      allow read: if isOwner(memberId) || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /usage/{usageId} {
+      allow create: if isSignedIn();
+      allow read, list: if isAdmin();
+    }
+
+    match /earnings/{earningId} {
+      allow read, write: if isAdmin();
     }
   }
 }

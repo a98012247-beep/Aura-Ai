@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { LogIn, LogOut, Cloud, CloudUpload, CloudDownload, User } from 'lucide-react';
+import { LogIn, LogOut, Cloud, CloudUpload, CloudDownload, User, Lock, Mail } from 'lucide-react';
 import { useAuthStore } from '../store/auth';
-import { signInWithGoogle, signOut, db } from '../lib/firebase';
+import { logIn, signOut, db } from '../lib/firebase';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useSettingsStore } from '../store/settings';
 import { useProjectsStore } from '../store/projects';
@@ -12,12 +12,18 @@ export default function AccountPage() {
   const { autoSaveEnabled, setAutoSaveEnabled } = useSettingsStore();
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
 
-  const handleSignIn = async () => {
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
     try {
-      await signInWithGoogle();
-    } catch (error) {
+      await logIn(email, password);
+    } catch (error: any) {
       console.error(error);
+      setError(error.message || 'Failed to sign in. Please check your credentials.');
     }
   };
 
@@ -99,23 +105,65 @@ export default function AccountPage() {
         transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
         className="max-w-4xl mx-auto px-4 py-8 md:py-12 w-full flex items-center justify-center min-h-[50vh]"
       >
-        <div className="flex flex-col items-center gap-6 max-w-md text-center bg-white border border-neutral-200/85 p-8 rounded-3xl shadow-xl backdrop-blur-xl">
+        <div className="flex flex-col items-center gap-6 w-full max-w-md text-center bg-white border border-neutral-200/85 p-8 rounded-3xl shadow-xl backdrop-blur-xl">
           <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center border border-blue-200">
-            <Cloud className="w-8 h-8 text-blue-600" />
+            <User className="w-8 h-8 text-blue-600" />
           </div>
           <div>
-            <h2 className="text-2xl md:text-3xl font-extrabold mb-2 text-neutral-900">Cloud <span className="font-serif italic font-normal text-blue-600">Sync</span></h2>
+            <h2 className="text-2xl md:text-3xl font-extrabold mb-2 text-neutral-900">Pro Member <span className="font-serif italic font-normal text-blue-600">Login</span></h2>
             <p className="text-neutral-600 font-medium text-sm leading-relaxed">
-              Sign in with Google to backup your API keys, voice settings, and project history to the cloud, and sync across all your devices.
+              Sign in to access your Pro account.
             </p>
           </div>
-          <button
-            onClick={handleSignIn}
-            className="flex items-center gap-3 bg-neutral-900 hover:bg-neutral-800 text-white px-7 py-3.5 rounded-full text-sm font-bold transition-all shadow-lg hover:scale-105 active:scale-95"
-          >
-            <LogIn className="w-4 h-4" />
-            Sign In with Google
-          </button>
+
+          <form onSubmit={handleSignIn} className="w-full space-y-4 text-left">
+            <div>
+              <label className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-1.5 ml-1">Email Address</label>
+              <div className="relative">
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+                <input 
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full pl-11 pr-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none font-medium transition-all"
+                  placeholder="name@email.com"
+                  required
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-1.5 ml-1">Password</label>
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+                <input 
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full pl-11 pr-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none font-medium transition-all"
+                  placeholder="••••••••"
+                  required
+                />
+              </div>
+            </div>
+
+            {error && (
+              <p className="text-xs text-red-500 font-bold bg-red-50 p-3 rounded-xl border border-red-100 italic">
+                {error}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              className="flex items-center justify-center gap-3 w-full bg-neutral-900 hover:bg-neutral-800 text-white px-7 py-3.5 rounded-full text-sm font-bold transition-all shadow-lg hover:scale-[1.02] active:scale-[0.98]"
+            >
+              <LogIn className="w-4 h-4" />
+              Sign In to Studio
+            </button>
+          </form>
+
+          <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-tighter">
+            Authorized Access Only • Awavox AI Studio
+          </p>
         </div>
       </motion.div>
     );

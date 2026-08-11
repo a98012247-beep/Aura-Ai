@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Search, Loader2, Play, Pause, AlertCircle, Volume2, Mic2 } from 'lucide-react';
+import { Search, Loader2, Play, Pause, AlertCircle, Volume2, Mic2, UploadCloud } from 'lucide-react';
 import { useSettingsStore, ApiKey } from '../store/settings';
+import { useAuthStore } from '../store/auth';
+import { SubscriptionPopup } from '../components/SubscriptionPopup';
 import { motion } from 'motion/react';
 
 interface Voice {
@@ -19,6 +21,10 @@ export default function VoiceLibraryPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const { memberProfile } = useAuthStore();
+  const [showSubscription, setShowSubscription] = useState(false);
+  const isPro = memberProfile?.status === 'active' || memberProfile?.role === 'admin';
 
   const apiKeys = useSettingsStore(state => state.apiKeys);
   const activeKeyData = apiKeys.find(k => k.isActive && k.isValid);
@@ -163,6 +169,7 @@ export default function VoiceLibraryPage() {
       className="flex-1 overflow-y-auto bg-transparent"
     >
       <div className="max-w-6xl mx-auto px-4 py-8">
+        <SubscriptionPopup isOpen={showSubscription} onClose={() => setShowSubscription(false)} />
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-cyan-100 border border-cyan-200 text-cyan-800 text-xs font-bold tracking-wide uppercase shadow-2xs mb-3">
@@ -189,7 +196,7 @@ export default function VoiceLibraryPage() {
           </div>
         </div>
 
-        {error && (
+        {isPro && error && (
           <div className="p-4 mb-8 bg-red-50 border border-red-200 rounded-2xl text-red-700 font-semibold flex items-start gap-3 shadow-md">
             <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-red-600" />
             <p className="text-sm">{error}</p>

@@ -1,29 +1,44 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router';
-import { Mic2, Settings, History, X, User as UserIcon, Library } from 'lucide-react';
+import { Mic2, Settings, History, X, User as UserIcon, Library, ShieldCheck } from 'lucide-react';
 import StudioPage from './pages/Studio';
 import SettingsPage from './pages/Settings';
 import HistoryPage from './pages/History';
 import AccountPage from './pages/Account';
 import VoiceLibraryPage from './pages/VoiceLibrary';
+import { AdminPage } from './pages/Admin';
 import { useSettingsStore } from './store/settings';
 import { useAuthStore } from './store/auth';
-import { onAuthStateChanged, auth } from './lib/firebase';
+import { onAuthStateChanged, auth, db } from './lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import { AutoCloudSync } from './components/AutoCloudSync';
 
 function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const apiKeys = useSettingsStore(state => state.apiKeys);
   const activeKey = apiKeys.find(k => k.isActive);
-  const { user, setUser, setLoading } = useAuthStore();
+  const { user, setUser, setLoading, memberProfile, setMemberProfile } = useAuthStore();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
+    const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
+      if (u) {
+        const mDoc = await getDoc(doc(db, 'members', u.uid));
+        if (mDoc.exists()) {
+          setMemberProfile(mDoc.data());
+        } else {
+          setMemberProfile(null);
+        }
+      } else {
+        setMemberProfile(null);
+      }
       setLoading(false);
     });
     return () => unsubscribe();
-  }, [setUser, setLoading]);
+  }, [setUser, setLoading, setMemberProfile]);
+
+  const isPro = memberProfile?.status === 'active' || memberProfile?.role === 'admin';
+  const isAdmin = memberProfile?.role === 'admin';
 
   return (
     <div className="min-h-screen bg-[#FAF9F6] text-neutral-900 font-sans selection:bg-purple-200 flex flex-col pb-16 md:pb-0 relative overflow-x-hidden">
@@ -81,6 +96,15 @@ function Layout({ children }: { children: React.ReactNode }) {
                   <span className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]"></span>
                )}
              </Link>
+             {isAdmin && (
+               <Link 
+                to="/admin" 
+                className={`flex items-center gap-1.5 transition-all px-3 py-1.5 rounded-full whitespace-nowrap ${location.pathname === '/admin' ? 'bg-indigo-600 text-white shadow-sm' : 'text-indigo-600 hover:bg-indigo-50 font-bold'}`}
+               >
+                 <ShieldCheck className="w-4 h-4" />
+                 Admin
+               </Link>
+             )}
              <Link
               to="/account"
               className={`flex items-center gap-1.5 transition-all px-3 py-1.5 rounded-full whitespace-nowrap ${location.pathname === '/account' ? 'bg-neutral-900 text-white shadow-sm' : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100'}`}
@@ -131,6 +155,15 @@ function Layout({ children }: { children: React.ReactNode }) {
               <span className="absolute top-0 right-1 w-1.5 h-1.5 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]"></span>
            )}
          </Link>
+         {isAdmin && (
+           <Link 
+            to="/admin" 
+            className={`flex flex-col items-center gap-1 transition-colors whitespace-nowrap ${location.pathname === '/admin' ? 'text-indigo-600' : 'text-neutral-500'}`}
+           >
+             <ShieldCheck className="w-5 h-5" />
+             Admin
+           </Link>
+         )}
          <Link 
           to="/account" 
           className={`flex flex-col items-center gap-1 transition-colors whitespace-nowrap relative ${location.pathname === '/account' ? 'text-purple-600' : 'text-neutral-500 hover:text-neutral-900'}`}
@@ -161,6 +194,7 @@ export default function App() {
           <Route path="/history" element={<HistoryPage />} />
           <Route path="/account" element={<AccountPage />} />
           <Route path="/voices" element={<VoiceLibraryPage />} />
+          <Route path="/admin" element={<AdminPage />} />
         </Routes>
       </Layout>
     </BrowserRouter>

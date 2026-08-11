@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut as firebaseSignOut, onAuthStateChanged } from "firebase/auth";
-import { getFirestore, doc, setDoc, getDoc, collection, serverTimestamp } from "firebase/firestore";
+import { getAuth, signInWithEmailAndPassword, signOut as firebaseSignOut, onAuthStateChanged, createUserWithEmailAndPassword } from "firebase/auth";
+import { getFirestore, doc, setDoc, getDoc, collection, serverTimestamp, query, where, getDocs, addDoc } from "firebase/firestore";
 
 import firebaseConfig from "../../firebase-applet-config.json";
 
@@ -14,14 +14,12 @@ if (typeof window !== "undefined") {
   window.db = db;
 }
 
-const googleProvider = new GoogleAuthProvider();
-
-export const signInWithGoogle = async () => {
+export const logIn = async (email: string, pass: string) => {
   try {
-    const result = await signInWithPopup(auth, googleProvider);
+    const result = await signInWithEmailAndPassword(auth, email, pass);
     return result.user;
   } catch (error) {
-    console.error("Error signing in with Google", error);
+    console.error("Error signing in", error);
     throw error;
   }
 };
