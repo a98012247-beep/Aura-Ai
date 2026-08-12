@@ -27,6 +27,22 @@
         "description": { "type": "string" },
         "timestamp": { "type": "timestamp" }
       }
+    },
+    "preview_api_keys": {
+      "description": "Cartesia API keys used for generating voice previews",
+      "fields": {
+        "key": { "type": "string" },
+        "name": { "type": "string" },
+        "createdAt": { "type": "timestamp" }
+      }
+    },
+    "voice_previews": {
+      "description": "Cached URLs of generated voice previews",
+      "fields": {
+        "voiceId": { "type": "string" },
+        "previewUrl": { "type": "string" },
+        "createdAt": { "type": "timestamp" }
+      }
     }
   }
 }

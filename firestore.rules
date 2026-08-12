@@ -33,5 +33,14 @@ service cloud.firestore {
     match /earnings/{earningId} {
       allow read, write: if isAdmin();
     }
+    
+    match /preview_api_keys/{keyId} {
+      allow read, write: if isAdmin();
+    }
+    
+    match /voice_previews/{previewId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
   }
 }

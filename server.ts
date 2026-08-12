@@ -5,6 +5,7 @@ import multer from "multer";
 import { initializeApp, getApps } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
+import { getStorage } from 'firebase-admin/storage';
 import firebaseConfig from "./firebase-applet-config.json";
 
 // Initialize Firebase Admin
@@ -14,7 +15,7 @@ if (getApps().length === 0) {
   });
 }
 
-const db = getFirestore();
+const db = getFirestore(firebaseConfig.firestoreDatabaseId);
 const auth = getAuth();
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -111,6 +112,78 @@ async function startServer() {
     }
     next();
   };
+
+  // Voice Preview Endpoint
+  app.get("/api/voice/preview/:voiceId", authMiddleware, async (req: any, res: any) => {
+    const { voiceId } = req.params;
+    
+    try {
+      // 1. Check Cache
+      const previewSnap = await db.collection('voice_previews').where('voiceId', '==', voiceId).limit(1).get();
+      if (!previewSnap.empty) {
+        return res.json({ url: previewSnap.docs[0].data().previewUrl });
+      }
+
+      // 2. Get Preview API Key
+      const keysSnap = await db.collection('preview_api_keys').get();
+      if (keysSnap.empty) {
+        return res.status(500).json({ error: "No Preview API keys configured by admin." });
+      }
+      
+      const keys = keysSnap.docs.map(d => d.data().key);
+      const apiKey = keys[Math.floor(Math.random() * keys.length)];
+
+      // 3. Generate Preview
+      const script = "Welcome to Awavox AI Studio. This is a preview of this voice, designed to sound natural, clear, expressive, and realistic for professional voiceovers.";
+      
+      const cartesiaRes = await fetch("https://api.cartesia.ai/tts/bytes", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": apiKey,
+          "Cartesia-Version": "2024-06-10"
+        },
+        body: JSON.stringify({
+          transcript: script,
+          model_id: "sonic-3.5",
+          voice: { mode: "id", id: voiceId },
+          output_format: { container: "mp3", encoding: "mp3", sample_rate: 44100 }
+        }),
+      });
+
+      if (!cartesiaRes.ok) {
+        const errorText = await cartesiaRes.text();
+        console.error("Cartesia Preview Error:", errorText);
+        return res.status(cartesiaRes.status).json({ error: "Failed to generate preview from Cartesia" });
+      }
+
+      const audioBuffer = Buffer.from(await cartesiaRes.arrayBuffer());
+
+      // 4. Upload to Firebase Storage
+      const bucket = getStorage().bucket(firebaseConfig.storageBucket);
+      const fileName = `previews/${voiceId}.mp3`;
+      const file = bucket.file(fileName);
+      
+      await file.save(audioBuffer, {
+        metadata: { contentType: 'audio/mpeg' },
+        public: true 
+      });
+
+      const previewUrl = `https://storage.googleapis.com/${firebaseConfig.storageBucket}/${fileName}`;
+
+      // 5. Save to Firestore
+      await db.collection('voice_previews').add({
+        voiceId,
+        previewUrl,
+        createdAt: FieldValue.serverTimestamp()
+      });
+
+      res.json({ url: previewUrl });
+    } catch (error: any) {
+      console.error("Voice Preview System Error:", error);
+      res.status(500).json({ error: error.message || "Internal Server Error" });
+    }
+  });
 
   // Admin Routes
   app.post("/api/admin/create-member", authMiddleware, async (req: any, res) => {
@@ -421,6 +494,51 @@ async function startServer() {
       res.json(data);
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Internal Server Error" });
+    }
+  });
+
+  // Internal Sync Endpoint
+  app.get("/api/internal/sync-voices", authMiddleware, async (req: express.Request, res: express.Response) => {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+    try {
+      const keysSnap = await db.collection('preview_api_keys').get();
+      if (keysSnap.empty) return res.status(404).json({ error: "No API keys found" });
+      const apiKey = keysSnap.docs[0].data().key;
+
+      const response = await fetch("https://api.cartesia.ai/voices", {
+        headers: {
+          "X-API-Key": apiKey,
+          "Cartesia-Version": "2024-06-10"
+        }
+      });
+
+      if (!response.ok) {
+        const err = await response.text();
+        return res.status(response.status).json({ error: err });
+      }
+
+      const voices = await response.json();
+      
+      const mappedVoices = voices.map((v: any) => ({
+        id: v.id,
+        name: v.name,
+        description: v.description || "",
+        language: v.language || "en",
+        gender: v.gender || "neutral",
+        country: v.country || "US",
+        is_high_quality: true,
+        is_public: true,
+        accents_locales: v.language_locales?.join(', ') || v.language,
+        age: v.age || "Middle-Aged"
+      }));
+
+      const fs = await import('fs');
+      const dataPath = path.join(process.cwd(), 'src/data/voices.json');
+      fs.writeFileSync(dataPath, JSON.stringify(mappedVoices, null, 2));
+
+      res.json({ success: true, count: mappedVoices.length });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
     }
   });
 

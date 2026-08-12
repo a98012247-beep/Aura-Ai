@@ -193,7 +193,7 @@ export default function SettingsPage() {
       <SubscriptionPopup isOpen={showSubscription} onClose={() => setShowSubscription(false)} />
       <div className="space-y-2 mb-12">
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-100 border border-purple-200 text-purple-800 text-xs font-bold tracking-wide uppercase shadow-2xs mb-3">
-          <Key className="w-3.5 h-3.5 text-purple-600" />
+          <Sliders className="w-3.5 h-3.5 text-purple-600" />
           Studio Settings
         </div>
         <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight text-neutral-900">Studio <span className="font-serif italic font-normal text-purple-600">Settings</span></h2>
@@ -206,11 +206,11 @@ export default function SettingsPage() {
         
         {isPro && (
           <>
-            {/* Add New Key */}
+            {/* Add New Configuration */}
             <div className="bg-white border border-neutral-200/80 backdrop-blur-2xl shadow-xl rounded-3xl p-6 md:p-8">
               <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-neutral-900">
                 <Plus className="w-5 h-5 text-purple-600" />
-                Add Key
+                Add Profile
               </h3>
               
               <form onSubmit={handleAdd} className="flex flex-col sm:flex-row gap-4">
@@ -225,7 +225,7 @@ export default function SettingsPage() {
                  </select>
                  <input 
                    type="text" 
-                   placeholder="Key Name (e.g. Personal Pro)"
+                   placeholder="Profile Name (e.g. Personal Pro)"
                    value={newKeyName}
                    onChange={e => setNewKeyName(e.target.value)}
                    className="flex-1 bg-neutral-50 border border-neutral-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-purple-400 transition-colors placeholder:text-neutral-400 text-neutral-900 font-medium"
@@ -233,7 +233,7 @@ export default function SettingsPage() {
                  />
                  <input 
                    type="password" 
-                   placeholder="Key Value..."
+                   placeholder="Access Key..."
                    value={newKeyValue}
                    onChange={e => setNewKeyValue(e.target.value)}
                    className="flex-[2] bg-neutral-50 border border-neutral-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-purple-400 transition-colors placeholder:text-neutral-400 placeholder:font-mono text-neutral-900 font-medium"
@@ -243,7 +243,7 @@ export default function SettingsPage() {
                    type="submit"
                    className="bg-neutral-900 text-white px-8 py-3 rounded-2xl text-sm font-bold hover:bg-neutral-800 transition-all shadow-md hover:scale-105 active:scale-95 shrink-0 whitespace-nowrap sm:w-auto w-full"
                  >
-                   Save Key
+                   Save Profile
                  </button>
               </form>
             </div>
@@ -252,16 +252,16 @@ export default function SettingsPage() {
 
         {isPro && (
           <>
-            {/* Saved Keys List */}
+            {/* Saved Configurations List */}
             <div className="space-y-4">
               <h3 className="text-lg font-bold flex items-center gap-2 text-neutral-900">
-                <Key className="w-5 h-5 text-purple-600" />
-                Saved Keys
+                <CheckCircle2 className="w-5 h-5 text-purple-600" />
+                Active Configurations
               </h3>
 
               {apiKeys.length === 0 ? (
                 <div className="text-center py-12 border border-neutral-200 bg-white/70 backdrop-blur-sm border-dashed rounded-3xl text-neutral-500 font-medium text-sm">
-                   No keys configured yet.
+                   No configurations found.
                 </div>
               ) : (
                  <div className="grid gap-4">

@@ -13,7 +13,9 @@ import {
   ArrowUpRight,
   TrendingUp,
   Clock,
-  X
+  X,
+  Key,
+  Trash2
 } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { 
@@ -31,7 +33,7 @@ import {
 } from 'firebase/firestore';
 import { cn } from '../lib/utils';
 
-type Tab = 'dashboard' | 'members' | 'usage' | 'earnings';
+type Tab = 'dashboard' | 'members' | 'usage' | 'earnings' | 'previews';
 
 interface Member {
   id: string;
@@ -57,18 +59,28 @@ interface EarningRecord {
   timestamp: any;
 }
 
+interface PreviewApiKey {
+  id: string;
+  key: string;
+  name: string;
+  createdAt: any;
+}
+
 export const AdminPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
   const [members, setMembers] = useState<Member[]>([]);
   const [usage, setUsage] = useState<UsageRecord[]>([]);
   const [earnings, setEarnings] = useState<EarningRecord[]>([]);
+  const [previewKeys, setPreviewKeys] = useState<PreviewApiKey[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Form states
   const [newMember, setNewMember] = useState({ email: '', password: '' });
   const [newEarning, setNewEarning] = useState({ amount: '', description: '' });
+  const [newPreviewKey, setNewPreviewKey] = useState({ key: '', name: '' });
   const [isAddingMember, setIsAddingMember] = useState(false);
   const [isAddingEarning, setIsAddingEarning] = useState(false);
+  const [isAddingPreviewKey, setIsAddingPreviewKey] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -88,6 +100,10 @@ export const AdminPage: React.FC = () => {
       if (activeTab === 'dashboard' || activeTab === 'earnings') {
         const eSnap = await getDocs(query(collection(db, 'earnings'), orderBy('timestamp', 'desc')));
         setEarnings(eSnap.docs.map(d => ({ id: d.id, ...d.data() } as EarningRecord)));
+      }
+      if (activeTab === 'previews') {
+        const pSnap = await getDocs(query(collection(db, 'preview_api_keys'), orderBy('createdAt', 'desc')));
+        setPreviewKeys(pSnap.docs.map(d => ({ id: d.id, ...d.data() } as PreviewApiKey)));
       }
     } catch (error) {
       console.error("Error fetching admin data:", error);
@@ -161,6 +177,57 @@ export const AdminPage: React.FC = () => {
     }
   };
 
+  const handleAddPreviewKey = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPreviewKey.key || !newPreviewKey.name) return;
+    try {
+      await addDoc(collection(db, 'preview_api_keys'), {
+        ...newPreviewKey,
+        createdAt: serverTimestamp()
+      });
+      setNewPreviewKey({ key: '', name: '' });
+      setIsAddingPreviewKey(false);
+      fetchData();
+    } catch (error) {
+      alert("Error adding preview key");
+    }
+  };
+
+  const deletePreviewKey = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this preview key?")) return;
+    try {
+      const { deleteDoc } = await import('firebase/firestore');
+      await deleteDoc(doc(db, 'preview_api_keys', id));
+      fetchData();
+    } catch (error) {
+      alert("Error deleting key");
+    }
+  };
+
+  const syncVoices = async () => {
+    if (!confirm("This will overwrite src/data/voices.json with the latest voices from Cartesia using the primary Preview API key. Continue?")) return;
+    try {
+      const { auth: firebaseAuth } = await import('../lib/firebase');
+      const token = await firebaseAuth.currentUser?.getIdToken();
+      
+      const res = await fetch('/api/internal/sync-voices', {
+        headers: { 
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!res.ok) {
+         const err = await res.text();
+         throw new Error(err || 'Failed to sync');
+      }
+      
+      const data = await res.json();
+      alert(`Success! Synced ${data.count} voices. Note: You may need to rebuild or refresh the app to see changes in the library.`);
+    } catch (error) {
+      alert("Sync Error: " + (error as Error).message);
+    }
+  };
+
   const totalEarnings = earnings.reduce((sum, e) => sum + e.amount, 0);
 
   return (
@@ -195,6 +262,12 @@ export const AdminPage: React.FC = () => {
             onClick={() => setActiveTab('earnings')}
             icon={<DollarSign className="w-5 h-5" />}
             label="Earnings"
+          />
+          <TabButton 
+            active={activeTab === 'previews'} 
+            onClick={() => setActiveTab('previews')}
+            icon={<Key className="w-5 h-5" />}
+            label="Preview APIs"
           />
         </nav>
       </aside>
@@ -411,6 +484,74 @@ export const AdminPage: React.FC = () => {
               </div>
             </div>
           )}
+
+          {activeTab === 'previews' && (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-900">Preview API Keys</h2>
+                  <p className="text-slate-500 text-sm mt-1">Manage Cartesia keys for generating voice library previews</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button 
+                    onClick={syncVoices}
+                    className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors border border-slate-200 font-semibold"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Sync Library
+                  </button>
+                  <button 
+                    onClick={() => setIsAddingPreviewKey(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Key
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                <table className="w-full text-left">
+                  <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Name</th>
+                      <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Key</th>
+                      <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Created</th>
+                      <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {previewKeys.map(pk => (
+                      <tr key={pk.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-6 py-4 font-medium text-slate-900">{pk.name}</td>
+                        <td className="px-6 py-4 font-mono text-xs text-slate-500">
+                          {pk.key.substring(0, 8)}...{pk.key.substring(pk.key.length - 4)}
+                        </td>
+                        <td className="px-6 py-4 text-slate-500 text-sm">
+                          {pk.createdAt?.toDate().toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <button 
+                            onClick={() => deletePreviewKey(pk.id)}
+                            className="p-1.5 text-slate-400 hover:text-red-600 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {previewKeys.length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="px-6 py-12 text-center text-slate-400 italic">
+                          No preview API keys configured yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       </main>
 
@@ -503,6 +644,54 @@ export const AdminPage: React.FC = () => {
                   className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
                 >
                   Add Entry
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Preview Key Modal */}
+      {isAddingPreviewKey && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-md p-8">
+            <h3 className="text-xl font-bold text-slate-900 mb-6">Add Preview API Key</h3>
+            <form onSubmit={handleAddPreviewKey} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Label Name</label>
+                <input 
+                  type="text"
+                  required
+                  value={newPreviewKey.name}
+                  onChange={e => setNewPreviewKey({ ...newPreviewKey, name: e.target.value })}
+                  className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                  placeholder="Main Cartesia Key"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">API Key</label>
+                <input 
+                  type="password"
+                  required
+                  value={newPreviewKey.key}
+                  onChange={e => setNewPreviewKey({ ...newPreviewKey, key: e.target.value })}
+                  className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                  placeholder="sk_cartesia_..."
+                />
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button 
+                  type="button"
+                  onClick={() => setIsAddingPreviewKey(false)}
+                  className="flex-1 px-4 py-2 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                >
+                  Save Key
                 </button>
               </div>
             </form>
