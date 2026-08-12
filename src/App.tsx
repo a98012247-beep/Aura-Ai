@@ -11,7 +11,6 @@ import { useSettingsStore } from './store/settings';
 import { useAuthStore } from './store/auth';
 import { onAuthStateChanged, auth, db } from './lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import { AutoCloudSync } from './components/AutoCloudSync';
 
 function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
@@ -57,9 +56,6 @@ function Layout({ children }: { children: React.ReactNode }) {
             <span className="ml-1 md:ml-3 px-2.5 py-1 rounded-full bg-purple-50 border border-purple-200/80 text-[10px] font-bold tracking-widest text-purple-700 uppercase hidden sm:inline-block shadow-2xs">
               TTS Pro
             </span>
-            <div className="ml-3 hidden sm:flex">
-              <AutoCloudSync />
-            </div>
           </div>
 
           {/* Desktop Nav */}

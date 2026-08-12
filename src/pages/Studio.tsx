@@ -15,9 +15,15 @@ export default function StudioPage() {
   const { memberProfile } = useAuthStore();
   const [showSubscription, setShowSubscription] = useState(false);
 
-  const isPro = memberProfile?.status === 'active' || memberProfile?.role === 'admin';
+  const isPro = memberProfile?.role === 'pro' || memberProfile?.role === 'admin';
 
   const { isGenerating, progress, error, finalAudioUrl, generate, currentChunk, totalChunks, statusText, reset } = useGenerationStore();
+
+  useEffect(() => {
+    if (error && (error.includes('PRO_REQUIRED') || error.toLowerCase().includes('pro subscription'))) {
+      setShowSubscription(true);
+    }
+  }, [error]);
   const getActiveKey = useSettingsStore(state => state.getActiveKey);
   const apiKeys = useSettingsStore(state => state.apiKeys);
   const activeKeyData = apiKeys.find(k => k.key === getActiveKey());
@@ -35,7 +41,7 @@ export default function StudioPage() {
 
     const vName = safeString(activeKeyData.voiceName || 'voice');
     const pName = safeString(profileName);
-    const platformName = safeString(activeKeyData.provider || 'elevenlabs');
+    const platformName = 'cartesia';
     const aName = safeString(activeKeyData.name || 'api');
 
     return `${vName}-${pName}-${platformName}-${aName}-${Date.now()}.mp3`;
@@ -45,14 +51,14 @@ export default function StudioPage() {
 
   useEffect(() => {
     async function loadCredits() {
-       if (activeKeyData?.key && (!activeKeyData.provider || activeKeyData.provider === 'elevenlabs')) {
+       if (activeKeyData?.key) {
           try {
             const { fetchSubscription } = await import('../services/elevenlabs');
             const data = await fetchSubscription(activeKeyData.key);
             setActiveCredits({
                used: data.character_count || 0,
                total: data.character_limit || 0,
-               tier: data.tier || 'unknown'
+               tier: data.tier || 'Cartesia API'
             });
           } catch(e) {
             console.error('Failed to load active credits:', e);
@@ -94,11 +100,7 @@ export default function StudioPage() {
       
       {/* Header Area */}
       <div className="space-y-3 text-center md:text-left flex flex-col items-center md:items-start pt-4">
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-100 border border-purple-200 text-purple-800 text-xs font-bold tracking-wide uppercase shadow-2xs">
-          <Sparkles className="w-3.5 h-3.5 text-purple-600 animate-pulse" />
-          Awavox AI Studio
-        </div>
-        <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight text-neutral-900">Bring Words, <span className="font-serif italic font-normal text-purple-600">To Life</span></h2>
+        <h2 className="text-5xl sm:text-7xl md:text-8xl font-extrabold tracking-tight text-neutral-900 leading-[1.05]">Bring Words, <span className="font-serif italic font-normal text-purple-600">To Life</span></h2>
         <p className="text-neutral-600 font-medium text-sm md:text-base max-w-xl leading-relaxed">
           Unlimited voice generation and cloning. Write or paste your script below to experience the next generation of voice AI.
         </p>

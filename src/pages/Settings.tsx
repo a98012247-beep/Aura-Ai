@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Key, Plus, Trash2, CheckCircle2, AlertCircle, RefreshCw, Sliders, Copy, Clapperboard, Play, Disc3, Loader2, Mic, UploadCloud, X } from 'lucide-react';
 import { useSettingsStore, StorytellingMode, PRESET_PROFILES } from '../store/settings';
-import { generateAudioChunk, fetchVoices, verifyVoiceAccess, cloneVoice } from '../services/elevenlabs';
+import { generateAudioChunk, fetchVoices, verifyVoiceAccess, cloneVoice, getAuthHeader } from '../services/elevenlabs';
 import { useAuthStore } from '../store/auth';
 import { SubscriptionPopup } from '../components/SubscriptionPopup';
 import { motion } from 'motion/react';
@@ -15,7 +15,7 @@ export default function SettingsPage() {
   } = useSettingsStore();
   const [newKeyName, setNewKeyName] = useState('');
   const [newKeyValue, setNewKeyValue] = useState('');
-  const [newKeyProvider, setNewKeyProvider] = useState<'elevenlabs' | 'cartesia' | 'google'>('elevenlabs');
+  const [newKeyProvider] = useState<'cartesia'>('cartesia');
   
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string|null>(null);
@@ -39,7 +39,7 @@ export default function SettingsPage() {
   };
   const [loadingCreditsMap, setLoadingCreditsMap] = useState<Record<string, boolean>>({});
 
-  // Voice Cloning State
+  const [showApiSettings, setShowApiSettings] = useState(false);
   const [showCloneModal, setShowCloneModal] = useState(false);
   const [cloneTargetKey, setCloneTargetKey] = useState<string | null>(null);
   const [cloneName, setCloneName] = useState('');
@@ -51,7 +51,7 @@ export default function SettingsPage() {
 
   const { memberProfile } = useAuthStore();
   const [showSubscription, setShowSubscription] = useState(false);
-  const isPro = memberProfile?.status === 'active' || memberProfile?.role === 'admin';
+  const isPro = memberProfile?.role === 'pro' || memberProfile?.role === 'admin';
 
   const handleCloneSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,28 +85,22 @@ export default function SettingsPage() {
     }
   };
 
-  const handleFetchVoices = async (keyId: string, apiKey: string, provider: 'elevenlabs' | 'cartesia' | 'google' = 'elevenlabs') => {
+  const handleFetchVoices = async (keyId: string, apiKey: string) => {
     setLoadingVoicesMap(prev => ({ ...prev, [keyId]: true }));
     try {
-      let voices: any[] = [];
-      if (provider === 'elevenlabs') {
-        voices = await fetchVoices(apiKey);
-      } else if (provider === 'cartesia') {
-        const response = await fetch(`/api/cartesia/voices?apiKey=${encodeURIComponent(apiKey)}`);
-        if (!response.ok) throw new Error(await response.text());
-        const data = await response.json();
-        // map cartesia voices to elevenlabs format roughly
-        voices = (data || []).map((v: any) => ({ voice_id: v.id, name: v.name }));
-      } else if (provider === 'google') {
-        const response = await fetch(`/api/google/voices?apiKey=${encodeURIComponent(apiKey)}`);
-        if (!response.ok) throw new Error(await response.text());
-        const data = await response.json();
-        voices = (data.voices || []).map((v: any) => ({ voice_id: v.name, name: v.name }));
-      }
+      const authHeaders = await getAuthHeader();
+      const response = await fetch(`/api/cartesia/voices?apiKey=${encodeURIComponent(apiKey)}`, {
+        headers: {
+          ...authHeaders
+        }
+      });
+      if (!response.ok) throw new Error(await response.text());
+      const data = await response.json();
+      const voices = (data || []).map((v: any) => ({ voice_id: v.id, name: v.name }));
       setVoicesMap(prev => ({ ...prev, [keyId]: voices }));
     } catch (e: any) {
       console.error(e);
-      alert(e.message || 'Failed to fetch voices. Please check the API key.');
+      alert(e.message || 'Failed to fetch voices. Please check the Cartesia API key.');
     } finally {
       setLoadingVoicesMap(prev => ({ ...prev, [keyId]: false }));
     }
@@ -122,7 +116,7 @@ export default function SettingsPage() {
         [keyId]: {
           used: data.character_count || 0,
           total: data.character_limit || 0,
-          tier: data.tier || 'unknown'
+          tier: data.tier || 'Cartesia API'
         }
       }));
     } catch (e: any) {
@@ -134,7 +128,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     apiKeys.forEach(k => {
-      if ((!k.provider || k.provider === 'elevenlabs') && k.isValid) {
+      if (k.isValid) {
         if (!creditsMap[k.id] && !loadingCreditsMap[k.id]) {
           handleFetchCredits(k.id, k.key);
         }
@@ -143,6 +137,11 @@ export default function SettingsPage() {
   }, [apiKeys]);
 
   const handlePreviewVoice = async () => {
+    if (!isPro) {
+      setShowSubscription(true);
+      return;
+    }
+
     const key = getActiveKey();
     if (!key) {
        setPreviewError('No valid key available to generate preview.');
@@ -162,7 +161,11 @@ export default function SettingsPage() {
       const url = URL.createObjectURL(blob);
       setPreviewUrl(url);
     } catch (err: any) {
-      setPreviewError(err.message || 'Failed to generate preview audio.');
+      if (err.message && (err.message.includes('PRO_REQUIRED') || err.message.toLowerCase().includes('pro subscription'))) {
+        setShowSubscription(true);
+      } else {
+        setPreviewError(err.message || 'Failed to generate preview audio.');
+      }
     } finally {
       setIsPreviewing(false);
     }
@@ -174,7 +177,6 @@ export default function SettingsPage() {
       addApiKey(newKeyName.trim(), newKeyValue.trim(), newKeyProvider);
       setNewKeyName('');
       setNewKeyValue('');
-      setNewKeyProvider('elevenlabs');
     }
   };
 
@@ -192,11 +194,7 @@ export default function SettingsPage() {
     >
       <SubscriptionPopup isOpen={showSubscription} onClose={() => setShowSubscription(false)} />
       <div className="space-y-2 mb-12">
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-100 border border-purple-200 text-purple-800 text-xs font-bold tracking-wide uppercase shadow-2xs mb-3">
-          <Sliders className="w-3.5 h-3.5 text-purple-600" />
-          Studio Settings
-        </div>
-        <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight text-neutral-900">Studio <span className="font-serif italic font-normal text-purple-600">Settings</span></h2>
+        <h2 className="text-4xl md:text-6xl font-extrabold tracking-tight text-neutral-900">Studio <span className="font-serif italic font-normal text-purple-600">Settings</span></h2>
         <p className="text-neutral-600 font-medium text-sm md:text-base leading-relaxed">
           Configure your voice profiles, cinematic settings, and account preferences for high-quality audio generation.
         </p>
@@ -204,224 +202,217 @@ export default function SettingsPage() {
 
       <div className="space-y-8 pb-12">
         
+        {/* API Settings Toggle Control (Pro Only) */}
         {isPro && (
           <>
-            {/* Add New Configuration */}
-            <div className="bg-white border border-neutral-200/80 backdrop-blur-2xl shadow-xl rounded-3xl p-6 md:p-8">
-              <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-neutral-900">
-                <Plus className="w-5 h-5 text-purple-600" />
-                Add Profile
-              </h3>
-              
-              <form onSubmit={handleAdd} className="flex flex-col sm:flex-row gap-4">
-                 <select
-                   value={newKeyProvider}
-                   onChange={(e) => setNewKeyProvider(e.target.value as 'elevenlabs' | 'cartesia' | 'google')}
-                   className="bg-neutral-50 border border-neutral-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-purple-400 transition-colors cursor-pointer text-neutral-900 font-medium"
-                 >
-                   <option value="elevenlabs">ElevenLabs</option>
-                   <option value="cartesia">Cartesia</option>
-                   <option value="google">Google</option>
-                 </select>
-                 <input 
-                   type="text" 
-                   placeholder="Profile Name (e.g. Personal Pro)"
-                   value={newKeyName}
-                   onChange={e => setNewKeyName(e.target.value)}
-                   className="flex-1 bg-neutral-50 border border-neutral-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-purple-400 transition-colors placeholder:text-neutral-400 text-neutral-900 font-medium"
-                   required
-                 />
-                 <input 
-                   type="password" 
-                   placeholder="Access Key..."
-                   value={newKeyValue}
-                   onChange={e => setNewKeyValue(e.target.value)}
-                   className="flex-[2] bg-neutral-50 border border-neutral-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-purple-400 transition-colors placeholder:text-neutral-400 placeholder:font-mono text-neutral-900 font-medium"
-                   required
-                 />
-                 <button 
-                   type="submit"
-                   className="bg-neutral-900 text-white px-8 py-3 rounded-2xl text-sm font-bold hover:bg-neutral-800 transition-all shadow-md hover:scale-105 active:scale-95 shrink-0 whitespace-nowrap sm:w-auto w-full"
-                 >
-                   Save Profile
-                 </button>
-              </form>
-            </div>
-          </>
-        )}
-
-        {isPro && (
-          <>
-            {/* Saved Configurations List */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-bold flex items-center gap-2 text-neutral-900">
-                <CheckCircle2 className="w-5 h-5 text-purple-600" />
-                Active Configurations
-              </h3>
-
-              {apiKeys.length === 0 ? (
-                <div className="text-center py-12 border border-neutral-200 bg-white/70 backdrop-blur-sm border-dashed rounded-3xl text-neutral-500 font-medium text-sm">
-                   No configurations found.
+            <div className="bg-white border border-neutral-200/80 backdrop-blur-2xl shadow-sm rounded-2xl p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-600">
+                  <Key className="w-5 h-5" />
                 </div>
-              ) : (
-                 <div className="grid gap-4">
-                   {apiKeys.map(key => (
-                     <div 
-                       key={key.id} 
-                       className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 p-4 sm:p-5 rounded-3xl border transition-all backdrop-blur-xl ${
-                         key.isActive 
-                           ? 'bg-white border-purple-300 shadow-md ring-2 ring-purple-100' 
-                           : 'bg-white/80 border-neutral-200/80 hover:bg-white hover:border-neutral-300 shadow-xs'
-                       }`}
+                <div>
+                  <h3 className="text-sm font-bold text-neutral-900">API Settings</h3>
+                  <p className="text-xs text-neutral-500 font-medium">Add and manage custom voice API profiles</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowApiSettings(!showApiSettings)}
+                className="px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all bg-neutral-100 text-neutral-700 hover:bg-neutral-200 shadow-2xs"
+              >
+                Hide / Show
+              </button>
+            </div>
+
+            {showApiSettings && (
+              <div className="space-y-8 animate-in fade-in">
+                {/* Add New Configuration */}
+                <div className="bg-white border border-neutral-200/80 backdrop-blur-2xl shadow-xl rounded-3xl p-6 md:p-8">
+                  <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-neutral-900">
+                    <Plus className="w-5 h-5 text-purple-600" />
+                    Add Profile
+                  </h3>
+                  
+                  <form onSubmit={handleAdd} className="flex flex-col sm:flex-row gap-4">
+                     <div className="bg-purple-50 border border-purple-200 text-purple-900 rounded-2xl px-4 py-3 text-sm font-bold flex items-center justify-center shrink-0">
+                       Awavox AI
+                     </div>
+                     <input 
+                       type="text" 
+                       placeholder="Profile Name (e.g. Pro Key)"
+                       value={newKeyName}
+                       onChange={e => setNewKeyName(e.target.value)}
+                       className="flex-1 bg-neutral-50 border border-neutral-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-purple-400 transition-colors placeholder:text-neutral-400 text-neutral-900 font-medium"
+                       required
+                     />
+                     <input 
+                       type="password" 
+                       placeholder="Access Key..."
+                       value={newKeyValue}
+                       onChange={e => setNewKeyValue(e.target.value)}
+                       className="flex-[2] bg-neutral-50 border border-neutral-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-purple-400 transition-colors placeholder:text-neutral-400 placeholder:font-mono text-neutral-900 font-medium"
+                       required
+                     />
+                     <button 
+                       type="submit"
+                       className="bg-neutral-900 text-white px-8 py-3 rounded-2xl text-sm font-bold hover:bg-neutral-800 transition-all shadow-md hover:scale-105 active:scale-95 shrink-0 whitespace-nowrap sm:w-auto w-full"
                      >
-                       <div className="flex items-start sm:items-center gap-3 sm:gap-4 w-full sm:w-auto overflow-hidden">
-                         <button
-                           onClick={() => setActiveApiKey(key.id)}
-                           title="Set Active"
-                           className={`w-4 h-4 sm:w-5 sm:h-5 shrink-0 rounded-full border flex items-center justify-center transition-colors mt-0.5 sm:mt-0 ${
+                       Save Profile
+                     </button>
+                  </form>
+                </div>
+
+                {/* Saved Configurations List */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-bold flex items-center gap-2 text-neutral-900">
+                    <CheckCircle2 className="w-5 h-5 text-purple-600" />
+                    Active Configurations
+                  </h3>
+
+                  {apiKeys.length === 0 ? (
+                    <div className="text-center py-12 border border-neutral-200 bg-white/70 backdrop-blur-sm border-dashed rounded-3xl text-neutral-500 font-medium text-sm">
+                       No API configurations found.
+                    </div>
+                  ) : (
+                     <div className="grid gap-4">
+                       {apiKeys.map(key => (
+                         <div 
+                           key={key.id} 
+                           className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 p-4 sm:p-5 rounded-3xl border transition-all backdrop-blur-xl ${
                              key.isActive 
-                               ? 'border-emerald-500 bg-emerald-50 text-emerald-600' 
-                               : 'border-neutral-300 hover:border-neutral-500'
+                               ? 'bg-white border-purple-300 shadow-md ring-2 ring-purple-100' 
+                               : 'bg-white/80 border-neutral-200/80 hover:bg-white hover:border-neutral-300 shadow-xs'
                            }`}
                          >
-                           {key.isActive && <CheckCircle2 className="w-2.5 h-2.5 sm:w-3 sm:h-3" />}
-                         </button>
-                         
-                         <div className="min-w-0 flex-1">
-                           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                             <span className="font-bold text-xs sm:text-sm text-neutral-900">{key.name}</span>
-                             <span className="text-[9px] sm:text-[10px] uppercase tracking-wider bg-neutral-100 text-neutral-700 px-2 py-0.5 rounded-full font-bold border border-neutral-200">
-                               {key.provider || 'elevenlabs'}
-                             </span>
-                             {key.isActive ? (
-                               <span className="flex items-center gap-1 text-[9px] sm:text-[10px] uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-bold">
-                                 Active
-                               </span>
-                             ) : (
-                               <span className="flex items-center gap-1 text-[9px] sm:text-[10px] uppercase tracking-wider bg-neutral-100 text-neutral-500 border border-neutral-200 px-2 py-0.5 rounded-full font-bold">
-                                 Inactive
-                               </span>
-                             )}
-                             {!key.isValid && (
-                                <span className="flex items-center gap-1 text-[9px] sm:text-[10px] uppercase tracking-wider bg-rose-50 text-rose-700 border border-rose-200 px-2 py-0.5 rounded-full font-bold">
-                                   <AlertCircle className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> Failed
-                                </span>
-                             )}
-                             {creditsMap[key.id] && (
-                               <span className="text-[9px] sm:text-[10px] bg-blue-50 text-blue-800 border border-blue-200 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
-                                 <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
-                                 {creditsMap[key.id]?.total ? `${Math.max(0, creditsMap[key.id]!.total - creditsMap[key.id]!.used).toLocaleString()} / ${creditsMap[key.id]?.total.toLocaleString()} chars` : 'Unlimited'}
-                                 <span className="text-blue-600 ml-1">({creditsMap[key.id]?.tier})</span>
-                               </span>
-                             )}
-                             <div className="text-[9px] sm:text-[10px] bg-amber-50 text-amber-800 px-2 py-0.5 rounded-full font-bold flex items-center gap-1 border border-amber-200">
-                               <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]"></span>
-                               {editingResetDaysId === key.id ? (
-                                 <form onSubmit={(e) => {
-                                   e.preventDefault();
-                                   const days = parseInt(tempResetDays, 10);
-                                   if (!isNaN(days) && days > 0) {
-                                      updateApiKeyResetDate(key.id, Date.now() + days * 24 * 60 * 60 * 1000);
-                                   }
-                                   setEditingResetDaysId(null);
-                                 }} className="flex items-center gap-1">
-                                   <input 
-                                     type="number" min="1" max="99"
-                                     value={tempResetDays}
-                                     onChange={e => setTempResetDays(e.target.value)}
-                                     className="bg-white border border-amber-300 rounded px-1 w-10 text-center outline-none text-neutral-900"
-                                     autoFocus
-                                     onBlur={() => setEditingResetDaysId(null)}
-                                     title="Warning: Modifying this will change when credits are expected to reset."
-                                   />
-                                   <span>days</span>
-                                 </form>
-                               ) : (
-                                 <span 
-                                   onClick={() => {
-                                     setTempResetDays(getRemainingDays(key.resetDate).toString());
-                                     setEditingResetDaysId(key.id);
-                                   }}
-                                   className="cursor-pointer hover:text-amber-900 transition-colors"
-                                   title="Click to edit remaining days (resets monthly)"
-                                 >
-                                   {getRemainingDays(key.resetDate)} days left
+                           <div className="flex items-start sm:items-center gap-3 sm:gap-4 w-full sm:w-auto overflow-hidden">
+                             <button
+                               onClick={() => setActiveApiKey(key.id)}
+                               title="Set Active"
+                               className={`w-4 h-4 sm:w-5 sm:h-5 shrink-0 rounded-full border flex items-center justify-center transition-colors mt-0.5 sm:mt-0 ${
+                                 key.isActive 
+                                   ? 'border-emerald-500 bg-emerald-50 text-emerald-600' 
+                                   : 'border-neutral-300 hover:border-neutral-500'
+                               }`}
+                             >
+                               {key.isActive && <CheckCircle2 className="w-2.5 h-2.5 sm:w-3 sm:h-3" />}
+                             </button>
+                             
+                             <div className="min-w-0 flex-1">
+                               <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                                 <span className="font-bold text-xs sm:text-sm text-neutral-900">{key.name}</span>
+                                 <span className="text-[9px] sm:text-[10px] uppercase tracking-wider bg-purple-50 text-purple-800 px-2 py-0.5 rounded-full font-bold border border-purple-200">
+                                   API Profile
                                  </span>
-                               )}
+                                 {key.isActive ? (
+                                   <span className="flex items-center gap-1 text-[9px] sm:text-[10px] uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-bold">
+                                     Active
+                                   </span>
+                                 ) : (
+                                   <span className="flex items-center gap-1 text-[9px] sm:text-[10px] uppercase tracking-wider bg-neutral-100 text-neutral-500 border border-neutral-200 px-2 py-0.5 rounded-full font-bold">
+                                     Inactive
+                                   </span>
+                                 )}
+                                 {!key.isValid && (
+                                    <span className="flex items-center gap-1 text-[9px] sm:text-[10px] uppercase tracking-wider bg-rose-50 text-rose-700 border border-rose-200 px-2 py-0.5 rounded-full font-bold">
+                                       <AlertCircle className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> Failed
+                                    </span>
+                                 )}
+                                 <div className="text-[9px] sm:text-[10px] bg-amber-50 text-amber-800 px-2 py-0.5 rounded-full font-bold flex items-center gap-1 border border-amber-200">
+                                   <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]"></span>
+                                   {editingResetDaysId === key.id ? (
+                                     <form onSubmit={(e) => {
+                                       e.preventDefault();
+                                       const days = parseInt(tempResetDays, 10);
+                                       if (!isNaN(days) && days > 0) {
+                                          updateApiKeyResetDate(key.id, Date.now() + days * 24 * 60 * 60 * 1000);
+                                       }
+                                       setEditingResetDaysId(null);
+                                     }} className="flex items-center gap-1">
+                                       <input 
+                                         type="number" min="1" max="99"
+                                         value={tempResetDays}
+                                         onChange={e => setTempResetDays(e.target.value)}
+                                         className="bg-white border border-amber-300 rounded px-1 w-10 text-center outline-none text-neutral-900"
+                                         autoFocus
+                                         onBlur={() => setEditingResetDaysId(null)}
+                                         title="Warning: Modifying this will change when credits are expected to reset."
+                                       />
+                                       <span>days</span>
+                                     </form>
+                                   ) : (
+                                     <span 
+                                       onClick={() => {
+                                         setTempResetDays(getRemainingDays(key.resetDate).toString());
+                                         setEditingResetDaysId(key.id);
+                                       }}
+                                       className="cursor-pointer hover:text-amber-900 transition-colors"
+                                       title="Click to edit remaining days"
+                                     >
+                                       {getRemainingDays(key.resetDate)} days left
+                                     </span>
+                                   )}
+                                 </div>
+                               </div>
+                               <div className="text-[11px] sm:text-xs text-neutral-500 font-mono mt-1 w-full truncate">
+                                 ••••••••{key.key.slice(-6)}
+                               </div>
+                               {/* Voice Selection */}
+                               <div className="mt-1.5 sm:mt-2 flex flex-wrap items-center gap-1.5 sm:gap-2 w-full">
+                                 <Mic className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-purple-600" />
+                                 {voicesMap[key.id] ? (
+                                   <select 
+                                     className="bg-neutral-50 text-neutral-800 text-[11px] sm:text-xs px-3 py-1.5 rounded-xl border border-neutral-200 w-full sm:w-auto max-w-[180px] sm:max-w-xs focus:outline-none focus:border-purple-400 font-medium"
+                                     value={key.voiceId || '92579402-6868-412e-b845-3efed0be7a9e'}
+                                     onChange={(e) => {
+                                       const v = voicesMap[key.id].find(v => v.voice_id === e.target.value);
+                                       updateApiKeyVoice(key.id, e.target.value, v ? v.name : 'Awavox Voice');
+                                     }}
+                                   >
+                                     <option value="92579402-6868-412e-b845-3efed0be7a9e">Jade - Steady Companion</option>
+                                     <optgroup label="Available Voices">
+                                       {voicesMap[key.id].map(v => (
+                                         <option key={v.voice_id} value={v.voice_id}>{v.name} ({v.voice_id})</option>
+                                       ))}
+                                     </optgroup>
+                                   </select>
+                                 ) : (
+                                   <div className="flex items-center gap-2">
+                                     <span className="text-xs text-neutral-700 font-semibold">{key.voiceName || 'Jade - Steady Companion'}</span>
+                                     <button
+                                       onClick={() => handleFetchVoices(key.id, key.key)}
+                                       disabled={loadingVoicesMap[key.id]}
+                                       className="text-[10px] text-neutral-700 hover:text-neutral-900 bg-neutral-100 hover:bg-neutral-200 px-3 py-1 rounded-lg transition-colors border border-neutral-200 font-semibold"
+                                     >
+                                       {loadingVoicesMap[key.id] ? 'Loading...' : 'Select Voice'}
+                                     </button>
+                                   </div>
+                                 )}
+                               </div>
                              </div>
                            </div>
-                           <div className="text-[11px] sm:text-xs text-neutral-500 font-mono mt-1 w-full truncate">
-                             ••••••••{key.key.slice(-6)}
-                           </div>
-                           {/* Voice Selection */}
-                           <div className="mt-1.5 sm:mt-2 flex flex-wrap items-center gap-1.5 sm:gap-2 w-full">
-                             <Mic className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-purple-600" />
-                             {voicesMap[key.id] ? (
-                               <select 
-                                 className="bg-neutral-50 text-neutral-800 text-[11px] sm:text-xs px-3 py-1.5 rounded-xl border border-neutral-200 w-full sm:w-auto max-w-[180px] sm:max-w-xs focus:outline-none focus:border-purple-400 font-medium"
-                                 value={key.voiceId || 'q109vaFit7lX6QNjx3cW'}
-                                 onChange={(e) => {
-                                   const v = voicesMap[key.id].find(v => v.voice_id === e.target.value);
-                                   updateApiKeyVoice(key.id, e.target.value, v ? v.name : 'Unknown Voice');
-                                 }}
-                               >
-                                 <option value="q109vaFit7lX6QNjx3cW">Default Aura Voice</option>
-                                 <optgroup label="Your Voices">
-                                   {voicesMap[key.id].map(v => (
-                                     <option key={v.voice_id} value={v.voice_id}>{v.name} ({v.voice_id})</option>
-                                   ))}
-                                 </optgroup>
-                               </select>
-                             ) : (
-                               <div className="flex items-center gap-2">
-                                 <span className="text-xs text-neutral-700 font-semibold">{key.voiceName || 'Default Aura Voice'}</span>
-                                 <button
-                                   onClick={() => handleFetchVoices(key.id, key.key, key.provider || 'elevenlabs')}
-                                   disabled={loadingVoicesMap[key.id]}
-                                   className="text-[10px] text-neutral-700 hover:text-neutral-900 bg-neutral-100 hover:bg-neutral-200 px-3 py-1 rounded-lg transition-colors border border-neutral-200 font-semibold"
-                                 >
-                                   {loadingVoicesMap[key.id] ? 'Loading...' : 'Select Voice'}
-                                 </button>
-                               </div>
-                             )}
-                             <button
-                               onClick={() => { 
-                                 if (!isPro) {
-                                   setShowSubscription(true);
-                                 } else {
-                                   setCloneTargetKey(key.id); 
-                                   setShowCloneModal(true); 
-                                 }
-                               }}
-                               className="text-[10px] text-neutral-700 hover:text-neutral-900 bg-neutral-100 hover:bg-neutral-200 px-3 py-1 flex items-center rounded-lg transition-colors ml-1 border border-neutral-200 font-semibold"
-                             >
-                               <UploadCloud className="w-3 h-3 mr-1 text-purple-600" /> Clone Voice
-                             </button>
-                           </div>
-                         </div>
-                       </div>
 
-                        <div className="flex items-center justify-end sm:justify-start gap-1 w-full sm:w-auto">
-                          <button 
-                            onClick={() => handleCopy(key.key)}
-                            className="p-2 sm:p-2.5 text-neutral-500 hover:text-neutral-900 transition-colors rounded-xl hover:bg-neutral-100"
-                            title="Copy Key"
-                          >
-                            <Copy className="w-4 h-4 sm:w-4 sm:h-4" />
-                          </button>
-                          <button 
-                            onClick={() => removeApiKey(key.id)}
-                            className="p-2 sm:p-2.5 text-neutral-500 hover:text-rose-600 transition-colors rounded-xl hover:bg-rose-50"
-                            title="Remove Key"
-                          >
-                            <Trash2 className="w-4 h-4 sm:w-4 sm:h-4" />
-                          </button>
-                        </div>
+                            <div className="flex items-center justify-end sm:justify-start gap-1 w-full sm:w-auto">
+                              <button 
+                                onClick={() => handleCopy(key.key)}
+                                className="p-2 sm:p-2.5 text-neutral-500 hover:text-neutral-900 transition-colors rounded-xl hover:bg-neutral-100"
+                                title="Copy Key"
+                              >
+                                <Copy className="w-4 h-4 sm:w-4 sm:h-4" />
+                              </button>
+                              <button 
+                                onClick={() => removeApiKey(key.id)}
+                                className="p-2 sm:p-2.5 text-neutral-500 hover:text-rose-600 transition-colors rounded-xl hover:bg-rose-50"
+                                title="Remove Key"
+                              >
+                                <Trash2 className="w-4 h-4 sm:w-4 sm:h-4" />
+                              </button>
+                            </div>
+                         </div>
+                       ))}
                      </div>
-                   ))}
-                 </div>
-              )}
-            </div>
+                  )}
+                </div>
+              </div>
+            )}
           </>
         )}
 

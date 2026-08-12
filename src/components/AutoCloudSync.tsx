@@ -2,8 +2,9 @@ import React, { useEffect, useRef } from 'react';
 import { useAuthStore } from '../store/auth';
 import { useSettingsStore } from '../store/settings';
 import { useProjectsStore } from '../store/projects';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { prepareCloudSyncPayload } from '../utils/cloudSync';
 import { Cloud, CheckCircle2, Loader2 } from 'lucide-react';
 
 export function AutoCloudSync() {
@@ -11,7 +12,6 @@ export function AutoCloudSync() {
   const autoSaveEnabled = useSettingsStore(state => state.autoSaveEnabled);
   
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const isFirstRender = useRef(true);
 
   // Subscribe to changes in settings and projects to trigger autosave
   useEffect(() => {
@@ -23,23 +23,7 @@ export function AutoCloudSync() {
         const settingsState = useSettingsStore.getState();
         const projectsState = useProjectsStore.getState();
 
-        const plainData = JSON.parse(JSON.stringify({
-          settings: {
-            apiKeys: settingsState.apiKeys,
-            voiceSettings: settingsState.voiceSettings,
-            cinematicSettings: settingsState.cinematicSettings,
-            voiceProfiles: settingsState.voiceProfiles,
-            activeProfileId: settingsState.activeProfileId,
-          },
-          projects: {
-            projects: projectsState.projects,
-          },
-        }));
-
-        const data = {
-          ...plainData,
-          updatedAt: serverTimestamp(),
-        };
+        const data = prepareCloudSyncPayload(settingsState, projectsState);
 
         await setDoc(doc(db, 'users', user.uid), data);
         

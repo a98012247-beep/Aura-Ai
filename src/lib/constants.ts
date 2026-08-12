@@ -1,4 +1,4 @@
-export const VOICE_ID = 'q109vaFit7lX6QNjx3cW';
+export const VOICE_ID = '92579402-6868-412e-b845-3efed0be7a9e';
 
 export const DEFAULT_VOICE_SETTINGS = {
   stability: 0.78,

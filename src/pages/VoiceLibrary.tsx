@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Search, Loader2, Play, Pause, AlertCircle, Volume2, Mic2, Filter, ChevronDown, Globe, User, MapPin, Calendar, Languages, Zap } from 'lucide-react';
+import { Search, Loader2, Play, Pause, AlertCircle, Volume2, Mic2, ChevronDown, Globe, User, MapPin, Calendar, Languages, Lock } from 'lucide-react';
 import { useAuthStore } from '../store/auth';
+import { useSettingsStore } from '../store/settings';
 import { SubscriptionPopup } from '../components/SubscriptionPopup';
 import { motion, AnimatePresence } from 'motion/react';
 import voicesData from '../data/voices.json';
+import { getAuthHeader } from '../services/elevenlabs';
+import { getCachedPreview, saveCachedPreview } from '../utils/previewCache';
 
 interface Voice {
   id: string;
@@ -18,6 +21,83 @@ interface Voice {
   age?: string;
 }
 
+function getVoiceTheme(voice: Voice) {
+  const seedStr = `${voice.country || ''}-${voice.language || ''}-${voice.gender || ''}-${voice.age || ''}-${voice.accents_locales || ''}-${voice.id}`;
+  let hash = 0;
+  for (let i = 0; i < seedStr.length; i++) {
+    hash = (hash << 5) - hash + seedStr.charCodeAt(i);
+    hash |= 0;
+  }
+  const themes = [
+    {
+      bg: 'bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60',
+      border: 'border-indigo-100 hover:border-indigo-300',
+      accent: 'text-indigo-600',
+      hoverText: 'group-hover:text-indigo-600',
+      playBg: 'bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white',
+      activePlayBg: 'bg-indigo-600 text-white'
+    },
+    {
+      bg: 'bg-gradient-to-br from-emerald-50/80 via-white to-teal-50/60',
+      border: 'border-emerald-100 hover:border-emerald-300',
+      accent: 'text-emerald-600',
+      hoverText: 'group-hover:text-emerald-600',
+      playBg: 'bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white',
+      activePlayBg: 'bg-emerald-600 text-white'
+    },
+    {
+      bg: 'bg-gradient-to-br from-amber-50/70 via-white to-orange-50/50',
+      border: 'border-amber-100 hover:border-amber-300',
+      accent: 'text-amber-600',
+      hoverText: 'group-hover:text-amber-600',
+      playBg: 'bg-amber-50 text-amber-600 hover:bg-amber-600 hover:text-white',
+      activePlayBg: 'bg-amber-600 text-white'
+    },
+    {
+      bg: 'bg-gradient-to-br from-rose-50/70 via-white to-pink-50/50',
+      border: 'border-rose-100 hover:border-rose-300',
+      accent: 'text-rose-600',
+      hoverText: 'group-hover:text-rose-600',
+      playBg: 'bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white',
+      activePlayBg: 'bg-rose-600 text-white'
+    },
+    {
+      bg: 'bg-gradient-to-br from-cyan-50/80 via-white to-sky-50/60',
+      border: 'border-cyan-100 hover:border-cyan-300',
+      accent: 'text-cyan-600',
+      hoverText: 'group-hover:text-cyan-600',
+      playBg: 'bg-cyan-50 text-cyan-600 hover:bg-cyan-600 hover:text-white',
+      activePlayBg: 'bg-cyan-600 text-white'
+    },
+    {
+      bg: 'bg-gradient-to-br from-violet-50/80 via-white to-purple-50/60',
+      border: 'border-violet-100 hover:border-violet-300',
+      accent: 'text-violet-600',
+      hoverText: 'group-hover:text-violet-600',
+      playBg: 'bg-violet-50 text-violet-600 hover:bg-violet-600 hover:text-white',
+      activePlayBg: 'bg-violet-600 text-white'
+    },
+    {
+      bg: 'bg-gradient-to-br from-blue-50/80 via-white to-indigo-50/60',
+      border: 'border-blue-100 hover:border-blue-300',
+      accent: 'text-blue-600',
+      hoverText: 'group-hover:text-blue-600',
+      playBg: 'bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white',
+      activePlayBg: 'bg-blue-600 text-white'
+    },
+    {
+      bg: 'bg-gradient-to-br from-fuchsia-50/70 via-white to-purple-50/50',
+      border: 'border-fuchsia-100 hover:border-fuchsia-300',
+      accent: 'text-fuchsia-600',
+      hoverText: 'group-hover:text-fuchsia-600',
+      playBg: 'bg-fuchsia-50 text-fuchsia-600 hover:bg-fuchsia-600 hover:text-white',
+      activePlayBg: 'bg-fuchsia-600 text-white'
+    }
+  ];
+  const index = Math.abs(hash) % themes.length;
+  return themes[index];
+}
+
 export default function VoiceLibraryPage() {
   const [voices, setVoices] = useState<Voice[]>(voicesData);
   const [loading, setLoading] = useState(false);
@@ -26,6 +106,51 @@ export default function VoiceLibraryPage() {
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
   const [previewLoadingId, setPreviewLoadingId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const { apiKeys } = useSettingsStore();
+  const activeKeyObj = useMemo(() => apiKeys.find(k => k.isActive && k.isValid), [apiKeys]);
+
+  // Fetch API voices if active API key is selected
+  useEffect(() => {
+    let isMounted = true;
+    async function loadApiVoices() {
+      if (!activeKeyObj) return;
+      setLoading(true);
+      try {
+        const authHeaders = await getAuthHeader();
+        const response = await fetch(`/api/cartesia/voices?apiKey=${encodeURIComponent(activeKeyObj.key)}`, {
+          headers: { ...authHeaders }
+        });
+        if (!response.ok) return;
+        const apiVoicesList = await response.json();
+        if (Array.isArray(apiVoicesList) && apiVoicesList.length > 0 && isMounted) {
+          const mappedApiVoices: Voice[] = apiVoicesList.map((v: any) => ({
+            id: v.id || v.voice_id,
+            name: v.name,
+            description: v.description || (v.is_cloned ? 'User Cloned Voice' : 'Awavox Voice'),
+            language: v.language || 'English',
+            gender: v.gender || 'neutral',
+            country: v.country || 'US',
+            is_high_quality: true,
+            is_public: v.is_cloned ? false : (v.is_public !== undefined ? v.is_public : true),
+            accents_locales: v.accents_locales || 'en-US',
+            age: v.age || 'adult'
+          }));
+
+          const existingIds = new Set(mappedApiVoices.map(v => v.id));
+          const restStatic = voicesData.filter(v => !existingIds.has(v.id));
+          setVoices([...mappedApiVoices, ...restStatic]);
+        }
+      } catch (err) {
+        console.warn("Failed to fetch custom API voices:", err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+
+    loadApiVoices();
+    return () => { isMounted = false; };
+  }, [activeKeyObj]);
 
   // Filters
   const [filters, setFilters] = useState({
@@ -39,22 +164,20 @@ export default function VoiceLibraryPage() {
 
   const { memberProfile } = useAuthStore();
   const [showSubscription, setShowSubscription] = useState(false);
-  const isPro = memberProfile?.status === 'active' || memberProfile?.role === 'admin';
 
   // Derive unique filter values
   const filterOptions = useMemo(() => {
-    const langs = Array.from(new Set(voicesData.map(v => v.language))).sort();
-    const genders = Array.from(new Set(voicesData.map(v => v.gender))).sort();
-    const countries = Array.from(new Set(voicesData.map(v => v.country))).sort();
-    const ages = Array.from(new Set(voicesData.map(v => v.age).filter(Boolean))).sort();
+    const langs = Array.from(new Set(voices.map(v => v.language))).filter(Boolean).sort();
+    const genders = Array.from(new Set(voices.map(v => v.gender))).filter(Boolean).sort();
+    const countries = Array.from(new Set(voices.map(v => v.country))).filter(Boolean).sort();
+    const ages = Array.from(new Set(voices.map(v => v.age).filter(Boolean))).sort();
     
-    // Extract accent parts
-    const accents = Array.from(new Set(voicesData.flatMap(v => 
+    const accents = Array.from(new Set(voices.flatMap(v => 
       v.accents_locales ? v.accents_locales.split(',').map(s => s.trim().split('-')[1]?.replace('*', '') || s.trim()) : []
     ).filter(Boolean))).sort();
     
     return { langs, genders, countries, ages, accents };
-  }, []);
+  }, [voices]);
 
   const handlePreview = async (voiceId: string) => {
     if (playingVoiceId === voiceId && audioRef.current) {
@@ -75,21 +198,23 @@ export default function VoiceLibraryPage() {
     setError(null);
 
     try {
-      const idToken = await (await import('firebase/auth')).getAuth().currentUser?.getIdToken();
-      const res = await fetch(`/api/voice/preview/${voiceId}`, {
-        headers: {
-          'Authorization': `Bearer ${idToken}`
+      // 1. Check permanent cache
+      let audioUrl = await getCachedPreview(voiceId);
+
+      if (!audioUrl) {
+        // 2. Fetch preview audio if not cached
+        const res = await fetch(`/api/voice/preview/${voiceId}`);
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || 'Failed to load preview audio');
         }
-      });
-      
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Failed to load preview');
+
+        const blob = await res.blob();
+        await saveCachedPreview(voiceId, blob);
+        audioUrl = URL.createObjectURL(blob);
       }
 
-      const { url } = await res.json();
-      
-      const audio = new Audio(url);
+      const audio = new Audio(audioUrl);
       audioRef.current = audio;
       
       audio.addEventListener('ended', () => {
@@ -100,16 +225,14 @@ export default function VoiceLibraryPage() {
       setPlayingVoiceId(voiceId);
     } catch (err: any) {
       console.error("Preview error:", err);
-      setError(err.message);
+      setError(err.message || 'Failed to play voice preview');
     } finally {
       setPreviewLoadingId(null);
     }
   };
 
-  const filteredVoices = useMemo(() => {
-    return voicesData.filter(v => {
-      if (!v.is_public) return false;
-      
+  const filteredAndOrderedVoices = useMemo(() => {
+    const filtered = voices.filter(v => {
       const matchesSearch = v.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                            v.description?.toLowerCase().includes(searchQuery.toLowerCase());
       
@@ -125,7 +248,14 @@ export default function VoiceLibraryPage() {
 
       return matchesSearch && matchesLang && matchesGender && matchesCountry && matchesAge && matchesPro && matchesAccent;
     });
-  }, [searchQuery, filters]);
+
+    // Voice ordering: Private/Cloned voices FIRST, Public voices AFTER
+    return filtered.sort((a, b) => {
+      if (!a.is_public && b.is_public) return -1;
+      if (a.is_public && !b.is_public) return 1;
+      return a.name.localeCompare(b.name);
+    });
+  }, [voices, searchQuery, filters]);
 
   return (
     <motion.div 
@@ -138,15 +268,11 @@ export default function VoiceLibraryPage() {
         <SubscriptionPopup isOpen={showSubscription} onClose={() => setShowSubscription(false)} />
         
         <div className="flex flex-col mb-10">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-100 border border-purple-200 text-purple-800 text-xs font-bold tracking-wide uppercase shadow-sm mb-4 w-fit">
-            <Mic2 className="w-3.5 h-3.5 text-purple-600" />
-            Voice Explorer
-          </div>
           <h1 className="text-4xl md:text-6xl font-extrabold text-slate-900 tracking-tight">
             Voice <span className="font-serif italic font-normal text-purple-600">Library</span>
           </h1>
           <p className="text-slate-500 font-medium mt-3 text-lg max-w-2xl">
-            Browse and preview 800+ professional voices from Cartesia. Choose the perfect tone for your project.
+            Browse and preview professional voices from Awavox AI Studio. Choose the perfect tone for your project.
           </p>
         </div>
 
@@ -200,13 +326,6 @@ export default function VoiceLibraryPage() {
                 options={filterOptions.accents}
                 onChange={(val) => setFilters({...filters, accent: val})}
               />
-              <FilterSelect 
-                icon={<Zap className="w-4 h-4" />}
-                label="Quality"
-                value={filters.pro}
-                options={['pro', 'free']}
-                onChange={(val) => setFilters({...filters, pro: val})}
-              />
             </div>
           </div>
         </div>
@@ -218,9 +337,18 @@ export default function VoiceLibraryPage() {
           </div>
         )}
 
+        {loading && (
+          <div className="flex items-center justify-center gap-3 py-6 text-purple-600 font-bold text-sm">
+            <Loader2 className="w-5 h-5 animate-spin" />
+            <span>Loading API voices...</span>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           <AnimatePresence mode="popLayout">
-            {filteredVoices.map((voice, idx) => (
+            {filteredAndOrderedVoices.map((voice, idx) => {
+              const theme = getVoiceTheme(voice);
+              return (
               <motion.div 
                 key={voice.id}
                 layout
@@ -228,22 +356,31 @@ export default function VoiceLibraryPage() {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9 }}
                 transition={{ duration: 0.3, delay: idx * 0.01 }}
-                className="bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-2xl hover:border-purple-200 transition-all group flex flex-col h-full relative overflow-hidden"
+                className={`border rounded-2xl p-6 hover:shadow-2xl transition-all group flex flex-col h-full relative overflow-hidden ${theme.bg} ${theme.border}`}
               >
-                {voice.is_high_quality && (
-                  <div className="absolute top-0 right-0 px-3 py-1 bg-purple-600 text-white text-[10px] font-black uppercase tracking-tighter rounded-bl-xl shadow-lg">
-                    PRO
+                {/* Tagging: Private for cloned/private voices, Public tag for default public voices */}
+                {!voice.is_public ? (
+                  <div className="absolute top-0 right-0 px-3 py-1 bg-purple-900 text-purple-100 text-[10px] font-extrabold uppercase tracking-widest rounded-bl-xl shadow-md flex items-center gap-1">
+                    <Lock className="w-3 h-3 text-purple-300" />
+                    Private
+                  </div>
+                ) : (
+                  <div className="absolute top-0 right-0 px-3 py-1 bg-blue-100 text-blue-800 text-[10px] font-extrabold uppercase tracking-widest rounded-bl-xl border-b border-l border-blue-200 shadow-xs flex items-center gap-1">
+                    <Globe className="w-3 h-3 text-blue-600" />
+                    Public
                   </div>
                 )}
                 
-                <div className="flex items-start justify-between mb-4">
+                <div className="flex items-start justify-between mb-4 pt-2">
                   <div>
-                    <h3 className="font-bold text-lg text-slate-900 group-hover:text-purple-600 transition-colors line-clamp-1">
+                    <h3 className={`font-bold text-lg text-slate-900 ${theme.hoverText} transition-colors line-clamp-1`}>
                       {voice.name}
                     </h3>
-                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                      {voice.id.split('-')[0]}
-                    </span>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                        {voice.id.split('-')[0]}
+                      </span>
+                    </div>
                   </div>
                   
                   <button
@@ -251,8 +388,8 @@ export default function VoiceLibraryPage() {
                     disabled={previewLoadingId === voice.id}
                     className={`w-10 h-10 rounded-full flex items-center justify-center transition-all flex-shrink-0 shadow-sm ${
                       playingVoiceId === voice.id 
-                        ? 'bg-purple-600 text-white' 
-                        : 'bg-slate-100 text-slate-600 hover:bg-purple-50 hover:text-purple-600'
+                        ? theme.activePlayBg
+                        : theme.playBg
                     }`}
                   >
                     {previewLoadingId === voice.id ? (
@@ -267,22 +404,24 @@ export default function VoiceLibraryPage() {
 
                 <div className="flex-1 space-y-4">
                   {voice.description && (
-                    <p className="text-sm text-slate-500 font-medium leading-relaxed line-clamp-3 italic">
+                    <p className="text-sm text-slate-600 font-medium leading-relaxed line-clamp-3 italic">
                       "{voice.description}"
                     </p>
                   )}
                   
-                  <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-50">
-                    <Badge icon={<Globe className="w-3 h-3" />} text={voice.language} />
-                    {voice.gender && <Badge icon={<User className="w-3 h-3" />} text={voice.gender} />}
-                    {voice.age && <Badge icon={<Calendar className="w-3 h-3" />} text={voice.age} />}
+                  <div className="flex flex-wrap gap-2 pt-4 mt-auto border-t border-slate-200/60">
+                    {voice.language && <Badge icon={<Globe className="w-3 h-3" />} text={voice.language.toUpperCase()} accentClass={theme.accent} />}
+                    {voice.gender && voice.gender !== 'neutral' && <Badge icon={<User className="w-3 h-3" />} text={voice.gender} accentClass={theme.accent} />}
+                    {voice.country && <Badge icon={<MapPin className="w-3 h-3" />} text={voice.country} accentClass={theme.accent} />}
+                    {voice.age && <Badge icon={<Calendar className="w-3 h-3" />} text={voice.age} accentClass={theme.accent} />}
+                    {voice.accents_locales && <Badge icon={<Languages className="w-3 h-3" />} text={voice.accents_locales.split(',')[0]} title={voice.accents_locales} accentClass={theme.accent} />}
                   </div>
                 </div>
               </motion.div>
-            ))}
+            );})}
           </AnimatePresence>
           
-          {filteredVoices.length === 0 && (
+          {filteredAndOrderedVoices.length === 0 && (
             <div className="col-span-full py-20 text-center bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
               <Volume2 className="w-16 h-16 text-slate-300 mx-auto mb-4" />
               <h3 className="text-xl font-bold text-slate-900">No voices found</h3>
@@ -291,6 +430,7 @@ export default function VoiceLibraryPage() {
           )}
         </div>
       </div>
+      <SubscriptionPopup isOpen={showSubscription} onClose={() => setShowSubscription(false)} />
     </motion.div>
   );
 }
@@ -322,10 +462,10 @@ function FilterSelect({ icon, label, value, options, onChange }: {
   );
 }
 
-function Badge({ icon, text }: { icon: React.ReactNode, text: string }) {
+function Badge({ icon, text, title, accentClass }: { icon: React.ReactNode, text: string, title?: string, accentClass?: string }) {
   return (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-[11px] font-bold text-slate-600 uppercase tracking-tight whitespace-nowrap">
-      {icon}
+    <span title={title} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/80 text-[11px] font-bold text-slate-700 uppercase tracking-tight whitespace-nowrap border border-slate-200/80 shadow-xs">
+      <span className={accentClass || 'text-purple-600'}>{icon}</span>
       {text}
     </span>
   );

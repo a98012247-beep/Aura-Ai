@@ -125,7 +125,7 @@ export const PRESET_PROFILES: VoiceProfile[] = [
   }
 ];
 
-export type ApiProvider = 'elevenlabs' | 'cartesia' | 'google';
+export type ApiProvider = 'cartesia';
 
 export interface ApiKey {
   id: string;
@@ -173,7 +173,7 @@ export const useSettingsStore = create<SettingsState>()(
       activeProfileId: PRESET_PROFILES[0].id,
       voiceSettings: { ...PRESET_PROFILES[0].voiceSettings },
       cinematicSettings: { ...PRESET_PROFILES[0].cinematicSettings },
-      addApiKey: (name, key, provider = 'elevenlabs') =>
+      addApiKey: (name, key, provider = 'cartesia') =>
         set((state) => {
           const newKeys = [
             ...state.apiKeys.map((k) => ({ ...k, isActive: false })),
@@ -181,11 +181,11 @@ export const useSettingsStore = create<SettingsState>()(
               id: uuidv4(), 
               name, 
               key, 
-              provider, 
+              provider: 'cartesia' as const, 
               isActive: true, 
               isValid: true, 
-              voiceId: 'q109vaFit7lX6QNjx3cW', 
-              voiceName: 'Default Aura Voice', 
+              voiceId: '92579402-6868-412e-b845-3efed0be7a9e', 
+              voiceName: 'Jade - Steady Companion', 
               activeProfileId: PRESET_PROFILES[0].id,
               resetDate: Date.now() + 30 * 24 * 60 * 60 * 1000 // 30 days from now
             },

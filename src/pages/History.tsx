@@ -49,11 +49,7 @@ export default function HistoryPage() {
       className="max-w-4xl mx-auto w-full px-4 py-8"
     >
       <div className="mb-8">
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-800 text-xs font-bold tracking-wide uppercase shadow-2xs mb-3">
-          <Clock className="w-3.5 h-3.5 text-emerald-600" />
-          Project Archive
-        </div>
-        <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight text-neutral-900">Saved <span className="font-serif italic font-normal text-emerald-700">Voiceovers</span></h2>
+        <h2 className="text-4xl md:text-6xl font-extrabold tracking-tight text-neutral-900">Saved <span className="font-serif italic font-normal text-emerald-700">Voiceovers</span></h2>
         <p className="text-neutral-600 font-medium mt-1 text-base">
           Your project history and generated voice narrations.
         </p>
@@ -156,7 +152,11 @@ export default function HistoryPage() {
                 </div>
                 
                 <div className="flex items-center gap-2 w-full sm:w-auto pt-2 sm:pt-0">
-                  <audio controls src={project.audioUrl} className="h-9 flex-1 sm:w-48 min-w-0 outline-none rounded-full" />
+                  {project.audioUrl ? (
+                    <audio controls src={project.audioUrl} className="h-9 flex-1 sm:w-48 min-w-0 outline-none rounded-full" />
+                  ) : (
+                    <span className="text-xs text-neutral-400 font-medium italic px-2">No audio URL</span>
+                  )}
                   
                   <button 
                     onClick={() => handleOpenProject(project)}

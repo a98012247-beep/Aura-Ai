@@ -15,13 +15,15 @@ service cloud.firestore {
 
     function isAdmin() {
       return isSignedIn() && (
-        get(/databases/$(database)/documents/members/$(request.auth.uid)).data.role == 'admin' ||
+        (exists(/databases/$(database)/documents/members/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/members/$(request.auth.uid)).data.role == 'admin') ||
         request.auth.token.email == 'a98012247@gmail.com'
       );
     }
 
     match /members/{memberId} {
       allow read: if isOwner(memberId) || isAdmin();
+      allow list: if isAdmin();
       allow write: if isAdmin();
     }
 
@@ -31,11 +33,13 @@ service cloud.firestore {
     }
 
     match /earnings/{earningId} {
-      allow read, write: if isAdmin();
+      allow read, list: if isAdmin();
+      allow write: if isAdmin();
     }
     
     match /preview_api_keys/{keyId} {
-      allow read, write: if isAdmin();
+      allow read, list: if isAdmin();
+      allow write: if isAdmin();
     }
     
     match /voice_previews/{previewId} {
