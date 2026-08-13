@@ -22,7 +22,7 @@ interface Voice {
 }
 
 function getVoiceTheme(voice: Voice) {
-  const seedStr = `${voice.country || ''}-${voice.language || ''}-${voice.gender || ''}-${voice.age || ''}-${voice.accents_locales || ''}-${voice.id}`;
+  const seedStr = `${(voice.language || '').toLowerCase().trim()}-${(voice.country || '').toLowerCase().trim()}-${(voice.gender || '').toLowerCase().trim()}-${(voice.age || '').toLowerCase().trim()}-${(voice.accents_locales || '').toLowerCase().trim()}`;
   let hash = 0;
   for (let i = 0; i < seedStr.length; i++) {
     hash = (hash << 5) - hash + seedStr.charCodeAt(i);
@@ -30,68 +30,74 @@ function getVoiceTheme(voice: Voice) {
   }
   const themes = [
     {
-      bg: 'bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60',
-      border: 'border-indigo-100 hover:border-indigo-300',
-      accent: 'text-indigo-600',
-      hoverText: 'group-hover:text-indigo-600',
-      playBg: 'bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white',
-      activePlayBg: 'bg-indigo-600 text-white'
+      // 1. Deep Purple / Indigo (Pro CTA style)
+      bg: 'bg-gradient-to-br from-purple-950 via-indigo-950 to-slate-950 shadow-xl shadow-purple-950/30 text-white',
+      border: 'border-purple-500/50 hover:border-purple-400',
+      accent: 'text-purple-300',
+      hoverText: 'group-hover:text-purple-200',
+      playBg: 'bg-purple-800/80 text-white hover:bg-purple-600',
+      activePlayBg: 'bg-purple-500 text-white',
+      badgeBg: 'bg-purple-900/90 border-purple-500/40 text-purple-200'
     },
     {
-      bg: 'bg-gradient-to-br from-emerald-50/80 via-white to-teal-50/60',
-      border: 'border-emerald-100 hover:border-emerald-300',
-      accent: 'text-emerald-600',
-      hoverText: 'group-hover:text-emerald-600',
-      playBg: 'bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white',
-      activePlayBg: 'bg-emerald-600 text-white'
+      // 2. Rich Blue / Indigo
+      bg: 'bg-gradient-to-br from-blue-950 via-indigo-950 to-slate-950 shadow-xl shadow-blue-950/30 text-white',
+      border: 'border-blue-500/50 hover:border-blue-400',
+      accent: 'text-blue-300',
+      hoverText: 'group-hover:text-blue-200',
+      playBg: 'bg-blue-800/80 text-white hover:bg-blue-600',
+      activePlayBg: 'bg-blue-500 text-white',
+      badgeBg: 'bg-blue-900/90 border-blue-500/40 text-blue-200'
     },
     {
-      bg: 'bg-gradient-to-br from-amber-50/70 via-white to-orange-50/50',
-      border: 'border-amber-100 hover:border-amber-300',
-      accent: 'text-amber-600',
-      hoverText: 'group-hover:text-amber-600',
-      playBg: 'bg-amber-50 text-amber-600 hover:bg-amber-600 hover:text-white',
-      activePlayBg: 'bg-amber-600 text-white'
+      // 3. Emerald / Teal
+      bg: 'bg-gradient-to-br from-emerald-950 via-teal-950 to-slate-950 shadow-xl shadow-emerald-950/30 text-white',
+      border: 'border-emerald-500/50 hover:border-emerald-400',
+      accent: 'text-emerald-300',
+      hoverText: 'group-hover:text-emerald-200',
+      playBg: 'bg-emerald-800/80 text-white hover:bg-emerald-600',
+      activePlayBg: 'bg-emerald-500 text-white',
+      badgeBg: 'bg-emerald-900/90 border-emerald-500/40 text-emerald-200'
     },
     {
-      bg: 'bg-gradient-to-br from-rose-50/70 via-white to-pink-50/50',
-      border: 'border-rose-100 hover:border-rose-300',
-      accent: 'text-rose-600',
-      hoverText: 'group-hover:text-rose-600',
-      playBg: 'bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white',
-      activePlayBg: 'bg-rose-600 text-white'
+      // 4. Amber / Gold
+      bg: 'bg-gradient-to-br from-amber-950 via-orange-950 to-slate-950 shadow-xl shadow-amber-950/30 text-white',
+      border: 'border-amber-500/50 hover:border-amber-400',
+      accent: 'text-amber-300',
+      hoverText: 'group-hover:text-amber-200',
+      playBg: 'bg-amber-800/80 text-white hover:bg-amber-600',
+      activePlayBg: 'bg-amber-500 text-white',
+      badgeBg: 'bg-amber-900/90 border-amber-500/40 text-amber-200'
     },
     {
-      bg: 'bg-gradient-to-br from-cyan-50/80 via-white to-sky-50/60',
-      border: 'border-cyan-100 hover:border-cyan-300',
-      accent: 'text-cyan-600',
-      hoverText: 'group-hover:text-cyan-600',
-      playBg: 'bg-cyan-50 text-cyan-600 hover:bg-cyan-600 hover:text-white',
-      activePlayBg: 'bg-cyan-600 text-white'
+      // 5. Rose / Pink / Crimson
+      bg: 'bg-gradient-to-br from-rose-950 via-pink-950 to-slate-950 shadow-xl shadow-rose-950/30 text-white',
+      border: 'border-rose-500/50 hover:border-rose-400',
+      accent: 'text-rose-300',
+      hoverText: 'group-hover:text-rose-200',
+      playBg: 'bg-rose-800/80 text-white hover:bg-rose-600',
+      activePlayBg: 'bg-rose-500 text-white',
+      badgeBg: 'bg-rose-900/90 border-rose-500/40 text-rose-200'
     },
     {
-      bg: 'bg-gradient-to-br from-violet-50/80 via-white to-purple-50/60',
-      border: 'border-violet-100 hover:border-violet-300',
-      accent: 'text-violet-600',
-      hoverText: 'group-hover:text-violet-600',
-      playBg: 'bg-violet-50 text-violet-600 hover:bg-violet-600 hover:text-white',
-      activePlayBg: 'bg-violet-600 text-white'
+      // 6. Cyan / Sky
+      bg: 'bg-gradient-to-br from-cyan-950 via-sky-950 to-slate-950 shadow-xl shadow-cyan-950/30 text-white',
+      border: 'border-cyan-500/50 hover:border-cyan-400',
+      accent: 'text-cyan-300',
+      hoverText: 'group-hover:text-cyan-200',
+      playBg: 'bg-cyan-800/80 text-white hover:bg-cyan-600',
+      activePlayBg: 'bg-cyan-500 text-white',
+      badgeBg: 'bg-cyan-900/90 border-cyan-500/40 text-cyan-200'
     },
     {
-      bg: 'bg-gradient-to-br from-blue-50/80 via-white to-indigo-50/60',
-      border: 'border-blue-100 hover:border-blue-300',
-      accent: 'text-blue-600',
-      hoverText: 'group-hover:text-blue-600',
-      playBg: 'bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white',
-      activePlayBg: 'bg-blue-600 text-white'
-    },
-    {
-      bg: 'bg-gradient-to-br from-fuchsia-50/70 via-white to-purple-50/50',
-      border: 'border-fuchsia-100 hover:border-fuchsia-300',
-      accent: 'text-fuchsia-600',
-      hoverText: 'group-hover:text-fuchsia-600',
-      playBg: 'bg-fuchsia-50 text-fuchsia-600 hover:bg-fuchsia-600 hover:text-white',
-      activePlayBg: 'bg-fuchsia-600 text-white'
+      // 7. Violet / Fuchsia
+      bg: 'bg-gradient-to-br from-violet-950 via-purple-950 to-slate-950 shadow-xl shadow-violet-950/30 text-white',
+      border: 'border-violet-500/50 hover:border-violet-400',
+      accent: 'text-violet-300',
+      hoverText: 'group-hover:text-violet-200',
+      playBg: 'bg-violet-800/80 text-white hover:bg-violet-600',
+      activePlayBg: 'bg-violet-500 text-white',
+      badgeBg: 'bg-violet-900/90 border-violet-500/40 text-violet-200'
     }
   ];
   const index = Math.abs(hash) % themes.length;
@@ -257,6 +263,17 @@ export default function VoiceLibraryPage() {
     });
   }, [voices, searchQuery, filters]);
 
+  const [visibleCount, setVisibleCount] = useState(24);
+
+  // Reset pagination when search or filters change
+  useEffect(() => {
+    setVisibleCount(24);
+  }, [searchQuery, filters]);
+
+  const displayedVoices = useMemo(() => {
+    return filteredAndOrderedVoices.slice(0, visibleCount);
+  }, [filteredAndOrderedVoices, visibleCount]);
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 15 }}
@@ -346,7 +363,7 @@ export default function VoiceLibraryPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           <AnimatePresence mode="popLayout">
-            {filteredAndOrderedVoices.map((voice, idx) => {
+            {displayedVoices.map((voice, idx) => {
               const theme = getVoiceTheme(voice);
               return (
               <motion.div 
@@ -360,24 +377,24 @@ export default function VoiceLibraryPage() {
               >
                 {/* Tagging: Private for cloned/private voices, Public tag for default public voices */}
                 {!voice.is_public ? (
-                  <div className="absolute top-0 right-0 px-3 py-1 bg-purple-900 text-purple-100 text-[10px] font-extrabold uppercase tracking-widest rounded-bl-xl shadow-md flex items-center gap-1">
-                    <Lock className="w-3 h-3 text-purple-300" />
+                  <div className={`absolute top-0 right-0 px-3 py-1 text-[10px] font-extrabold uppercase tracking-widest rounded-bl-xl shadow-md flex items-center gap-1 border-b border-l ${theme.badgeBg}`}>
+                    <Lock className="w-3 h-3" />
                     Private
                   </div>
                 ) : (
-                  <div className="absolute top-0 right-0 px-3 py-1 bg-blue-100 text-blue-800 text-[10px] font-extrabold uppercase tracking-widest rounded-bl-xl border-b border-l border-blue-200 shadow-xs flex items-center gap-1">
-                    <Globe className="w-3 h-3 text-blue-600" />
+                  <div className={`absolute top-0 right-0 px-3 py-1 text-[10px] font-extrabold uppercase tracking-widest rounded-bl-xl shadow-xs flex items-center gap-1 border-b border-l ${theme.badgeBg}`}>
+                    <Globe className="w-3 h-3" />
                     Public
                   </div>
                 )}
                 
                 <div className="flex items-start justify-between mb-4 pt-2">
                   <div>
-                    <h3 className={`font-bold text-lg text-slate-900 ${theme.hoverText} transition-colors line-clamp-1`}>
+                    <h3 className={`font-bold text-lg text-white ${theme.hoverText} transition-colors line-clamp-1`}>
                       {voice.name}
                     </h3>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                      <span className="text-[10px] text-purple-200/60 font-bold uppercase tracking-widest">
                         {voice.id.split('-')[0]}
                       </span>
                     </div>
@@ -404,12 +421,12 @@ export default function VoiceLibraryPage() {
 
                 <div className="flex-1 space-y-4">
                   {voice.description && (
-                    <p className="text-sm text-slate-600 font-medium leading-relaxed line-clamp-3 italic">
+                    <p className="text-sm text-slate-300 font-medium leading-relaxed line-clamp-3 italic">
                       "{voice.description}"
                     </p>
                   )}
                   
-                  <div className="flex flex-wrap gap-2 pt-4 mt-auto border-t border-slate-200/60">
+                  <div className="flex flex-wrap gap-2 pt-4 mt-auto border-t border-white/15">
                     {voice.language && <Badge icon={<Globe className="w-3 h-3" />} text={voice.language.toUpperCase()} accentClass={theme.accent} />}
                     {voice.gender && voice.gender !== 'neutral' && <Badge icon={<User className="w-3 h-3" />} text={voice.gender} accentClass={theme.accent} />}
                     {voice.country && <Badge icon={<MapPin className="w-3 h-3" />} text={voice.country} accentClass={theme.accent} />}
@@ -429,6 +446,17 @@ export default function VoiceLibraryPage() {
             </div>
           )}
         </div>
+
+        {visibleCount < filteredAndOrderedVoices.length && (
+          <div className="mt-8 text-center">
+            <button
+              onClick={() => setVisibleCount(prev => prev + 24)}
+              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs rounded-xl shadow-xs transition-all"
+            >
+              Load More ({filteredAndOrderedVoices.length - visibleCount} remaining)
+            </button>
+          </div>
+        )}
       </div>
       <SubscriptionPopup isOpen={showSubscription} onClose={() => setShowSubscription(false)} />
     </motion.div>
