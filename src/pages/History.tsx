@@ -42,24 +42,38 @@ export default function HistoryPage() {
   };
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 15 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-      className="max-w-4xl mx-auto w-full px-4 py-8"
-    >
-      <div className="mb-8">
-        <h2 className="text-4xl md:text-6xl font-extrabold tracking-tight text-neutral-900">Saved <span className="font-serif italic font-normal text-emerald-700">Voiceovers</span></h2>
-        <p className="text-neutral-600 font-medium mt-1 text-base">
-          Your project history and generated voice narrations.
-        </p>
-      </div>
+    <div className="flex flex-col min-h-full bg-transparent relative w-full">
+      {/* Background Glow */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-gradient-to-tr from-emerald-100/40 via-teal-100/40 to-blue-100/30 blur-[120px] pointer-events-none -z-10 rounded-full" />
 
-      {projects.length === 0 ? (
-        <div className="bg-white border border-neutral-200/80 backdrop-blur-2xl rounded-3xl p-12 text-center shadow-xl">
-          <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-200">
-            <Clock className="w-8 h-8 text-emerald-600" />
+      <motion.div 
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+        className="w-full px-4 md:px-6 py-6"
+      >
+        <div className="max-w-7xl mx-auto space-y-6">
+          <div className="flex items-end justify-between mb-8">
+            <div>
+              <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight text-neutral-900 drop-shadow-sm">
+                Saved <span className="font-serif italic font-normal text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-600 drop-shadow-[0_2px_8px_rgba(16,185,129,0.3)]">Voiceovers.</span>
+              </h2>
+              <p className="text-neutral-500 font-medium text-xs mt-1">
+                Manage your project history, download generated narrations, or reopen past scripts.
+              </p>
+            </div>
+            
+            <div className="bg-white/50 backdrop-blur-md px-4 py-2 rounded-xl border border-neutral-200/80 shadow-[inset_0_1px_4px_rgba(0,0,0,0.03),0_2px_4px_rgba(255,255,255,1)] flex flex-col items-center justify-center shrink-0 mb-1 min-w-[90px]">
+               <span className="text-lg font-black text-neutral-900 leading-tight">{projects.length}</span>
+               <span className="text-[8px] font-bold text-neutral-400 uppercase tracking-widest mt-0.5">Total Projects</span>
+            </div>
           </div>
+
+        {projects.length === 0 ? (
+          <div className="bg-white border border-neutral-200/80 backdrop-blur-2xl rounded-[2rem] p-16 text-center shadow-xl flex flex-col items-center">
+            <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center mb-6 border border-emerald-100">
+              <Clock className="w-8 h-8 text-emerald-500" />
+            </div>
           <h3 className="text-lg font-bold text-neutral-900 mb-1">No projects yet</h3>
           <p className="text-sm text-neutral-600 font-medium mt-1">
             Generated voiceovers will automatically save here.
@@ -179,6 +193,8 @@ export default function HistoryPage() {
           ))}
         </div>
       )}
-    </motion.div>
+        </div>
+      </motion.div>
+    </div>
   );
 }
