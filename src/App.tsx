@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router';
-import { Mic2, Settings, History, X, User as UserIcon, Library, ShieldCheck } from 'lucide-react';
+import { BrowserRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router';
+import { Mic2, Settings, History, X, User as UserIcon, Library, ShieldCheck, LayoutDashboard, Users, Activity, DollarSign, Key, MessageSquareWarning, ShieldAlert } from 'lucide-react';
 import Home from './pages/Home';
 import StudioPage from './pages/Studio';
 import SettingsPage from './pages/Settings';
 import HistoryPage from './pages/History';
 import AccountPage from './pages/Account';
+import About from './pages/About';
+import Contact from './pages/Contact';
+import Terms from './pages/Terms';
+import Privacy from './pages/Privacy';
 import VoiceLibraryPage from './pages/VoiceLibrary';
 import { AdminPage } from './pages/Admin';
 import { useSettingsStore } from './store/settings';
@@ -59,8 +63,10 @@ function Layout({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto [&::-webkit-scrollbar]:hidden">
-           <Link 
-            to="/" 
+           {!location.pathname.startsWith('/admin') ? (
+             <>
+               <Link 
+                to="/" 
             className={`flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-all ${location.pathname === '/' ? 'bg-neutral-800/80 text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]' : 'text-neutral-400 hover:text-white hover:bg-neutral-800/40'}`}
            >
              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
@@ -102,38 +108,112 @@ function Layout({ children }: { children: React.ReactNode }) {
                   <span className="absolute right-4 w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)]"></span>
                )}
              </Link>
-             {isAdmin && (
-               <Link 
-                to="/admin" 
-                className={`flex items-center gap-3 px-4 py-3 -mx-4 rounded-2xl font-bold transition-all ${location.pathname === '/admin' ? 'bg-indigo-900/50 text-indigo-300 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]' : 'text-indigo-400/70 hover:text-indigo-300 hover:bg-indigo-900/20'}`}
-               >
-                 <ShieldCheck className="w-5 h-5" />
-                 <span>Admin Area</span>
-               </Link>
-             )}
            </div>
+           
+           <div className="mt-8 flex justify-between px-5 pb-4">
+             <Link to="/about" className="text-[8px] font-extrabold text-neutral-500 hover:text-neutral-300 transition-colors uppercase tracking-wider">About</Link>
+             <Link to="/contact" className="text-[8px] font-extrabold text-neutral-500 hover:text-neutral-300 transition-colors uppercase tracking-wider">Contact</Link>
+             <Link to="/terms" className="text-[8px] font-extrabold text-neutral-500 hover:text-neutral-300 transition-colors uppercase tracking-wider">Terms</Link>
+             <Link to="/privacy" className="text-[8px] font-extrabold text-neutral-500 hover:text-neutral-300 transition-colors uppercase tracking-wider">Privacy</Link>
+           </div>
+           </>
+         ) : (
+           isAdmin && (
+             <div className="mb-2 mt-4 px-4">
+               <div className="text-[10px] font-extrabold uppercase tracking-widest text-indigo-500/70 mb-2 px-4 flex items-center gap-1">
+                 <ShieldCheck className="w-3 h-3" /> Management Portal
+               </div>
+               <Link 
+                to="/admin/dashboard" 
+                className={`flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-all ${location.pathname.includes('/admin/dashboard') ? 'bg-indigo-900/50 text-indigo-300 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]' : 'text-indigo-400/70 hover:text-indigo-300 hover:bg-indigo-900/20'}`}
+               >
+                 <LayoutDashboard className="w-4 h-4" /> <span>Dashboard</span>
+               </Link>
+               <Link 
+                to="/admin/members" 
+                className={`flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-all ${location.pathname.includes('/admin/members') ? 'bg-indigo-900/50 text-indigo-300 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]' : 'text-indigo-400/70 hover:text-indigo-300 hover:bg-indigo-900/20'}`}
+               >
+                 <Users className="w-4 h-4" /> <span>Pro Members</span>
+               </Link>
+               <Link 
+                to="/admin/generations" 
+                className={`flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-all ${location.pathname.includes('/admin/generations') ? 'bg-indigo-900/50 text-indigo-300 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]' : 'text-indigo-400/70 hover:text-indigo-300 hover:bg-indigo-900/20'}`}
+               >
+                 <Activity className="w-4 h-4" /> <span>Generations</span>
+               </Link>
+               <Link 
+                to="/admin/earnings" 
+                className={`flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-all ${location.pathname.includes('/admin/earnings') ? 'bg-indigo-900/50 text-indigo-300 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]' : 'text-indigo-400/70 hover:text-indigo-300 hover:bg-indigo-900/20'}`}
+               >
+                 <DollarSign className="w-4 h-4" /> <span>Earnings</span>
+               </Link>
+               <Link 
+                to="/admin/api-keys" 
+                className={`flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-all ${location.pathname.includes('/admin/api-keys') ? 'bg-indigo-900/50 text-indigo-300 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]' : 'text-indigo-400/70 hover:text-indigo-300 hover:bg-indigo-900/20'}`}
+               >
+                 <Key className="w-4 h-4" /> <span>API Integrations</span>
+               </Link>
+               <Link 
+                to="/admin/settings" 
+                className={`flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-all ${location.pathname.includes('/admin/settings') ? 'bg-indigo-900/50 text-indigo-300 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]' : 'text-indigo-400/70 hover:text-indigo-300 hover:bg-indigo-900/20'}`}
+               >
+                 <Settings className="w-4 h-4" /> <span>Global Settings</span>
+               </Link>
+               <Link 
+                to="/admin/feedback" 
+                className={`flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-all ${location.pathname.includes('/admin/feedback') ? 'bg-indigo-900/50 text-indigo-300 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]' : 'text-indigo-400/70 hover:text-indigo-300 hover:bg-indigo-900/20'}`}
+               >
+                 <MessageSquareWarning className="w-4 h-4" /> <span>Feedback & Bugs</span>
+               </Link>
+               <Link 
+                to="/admin/moderation" 
+                className={`flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-all ${location.pathname.includes('/admin/moderation') ? 'bg-indigo-900/50 text-indigo-300 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]' : 'text-indigo-400/70 hover:text-indigo-300 hover:bg-indigo-900/20'}`}
+               >
+                 <ShieldCheck className="w-4 h-4" /> <span>Moderation</span>
+               </Link>
+               <Link 
+                to="/admin/security" 
+                className={`flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-all ${location.pathname.includes('/admin/security') ? 'bg-red-900/50 text-red-300 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]' : 'text-red-400/70 hover:text-red-300 hover:bg-red-900/10'}`}
+               >
+                 <ShieldAlert className="w-4 h-4" /> <span>Anti-Abuse</span>
+               </Link>
+             </div>
+           )
+         )}
         </nav>
 
-        <div className="p-4 mt-auto border-t border-neutral-800/60">
-           <Link
-            to="/account"
-            className={`flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-all ${location.pathname === '/account' ? 'bg-neutral-800/80 text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]' : 'text-neutral-400 hover:text-white hover:bg-neutral-800/40'}`}
-           >
-             {user && user.photoURL ? (
-               <img src={user.photoURL} alt="Profile" className="w-8 h-8 rounded-full border border-neutral-700 shadow-sm" />
-             ) : (
-               <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-neutral-400 shadow-[inset_0_1px_2px_rgba(0,0,0,0.5)]">
-                 <UserIcon className="w-4 h-4" />
-               </div>
-             )}
-             <div className="flex flex-col">
-               <span className="text-sm leading-tight text-white">{user ? (memberProfile?.name || 'Account') : 'Sign In'}</span>
-               {user && (
-                 <span className="text-[10px] text-neutral-500 uppercase tracking-widest">{isPro ? 'Pro Member' : 'Free Plan'}</span>
+        {!location.pathname.startsWith('/admin') ? (
+          <div className="p-4 mt-auto border-t border-neutral-800/60">
+             <Link
+              to="/account"
+              className={`flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-all ${location.pathname === '/account' ? 'bg-neutral-800/80 text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]' : 'text-neutral-400 hover:text-white hover:bg-neutral-800/40'}`}
+             >
+               {user && user.photoURL ? (
+                 <img src={user.photoURL} alt="Profile" className="w-8 h-8 rounded-full border border-neutral-700 shadow-sm" />
+               ) : (
+                 <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-neutral-400 shadow-[inset_0_1px_2px_rgba(0,0,0,0.5)]">
+                   <UserIcon className="w-4 h-4" />
+                 </div>
                )}
-             </div>
-           </Link>
-        </div>
+               <div className="flex flex-col">
+                 <span className="text-sm leading-tight text-white">{user ? (memberProfile?.name || 'Account') : 'Sign In'}</span>
+                 {user && (
+                   <span className="text-[10px] text-neutral-500 uppercase tracking-widest">{isPro ? 'Pro Member' : 'Free Plan'}</span>
+                 )}
+               </div>
+             </Link>
+          </div>
+        ) : (
+          <div className="p-4 mt-auto border-t border-neutral-800/60">
+             <Link
+              to="/"
+              className="flex items-center justify-center gap-2 px-4 py-3 rounded-2xl font-bold text-neutral-400 hover:text-white hover:bg-neutral-800/40 transition-all"
+             >
+               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+               <span className="text-sm">Back to Website</span>
+             </Link>
+          </div>
+        )}
       </aside>
 
       {/* Mobile Nav */}
@@ -178,8 +258,13 @@ export default function App() {
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/history" element={<HistoryPage />} />
           <Route path="/account" element={<AccountPage />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/terms" element={<Terms />} />
+          <Route path="/privacy" element={<Privacy />} />
           <Route path="/voices" element={<VoiceLibraryPage />} />
-          <Route path="/admin" element={<AdminPage />} />
+          <Route path="/admin/:tab?" element={<AdminPage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>
     </BrowserRouter>

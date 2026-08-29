@@ -211,7 +211,7 @@ export default function VoiceLibraryPage() {
     >
       <div className="w-full px-4 md:px-6 py-6">
         <div className="max-w-7xl mx-auto space-y-6">
-          <div className="flex items-end justify-between mb-8">
+          <div className="flex items-start justify-between mb-8">
             <div>
               <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight text-neutral-900 drop-shadow-sm">Voice <span className="font-serif italic font-normal text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600 drop-shadow-[0_2px_8px_rgba(168,85,247,0.3)]">Library</span></h2>
               <p className="text-neutral-500 font-medium text-xs mt-1">
@@ -219,18 +219,18 @@ export default function VoiceLibraryPage() {
               </p>
             </div>
             
-            <div className="flex items-center gap-2 bg-white/50 backdrop-blur-md border border-neutral-200/80 p-1 rounded-xl shadow-[inset_0_1px_4px_rgba(0,0,0,0.03),0_2px_4px_rgba(255,255,255,1)] shrink-0 mb-1">
+            <div className="flex items-center gap-1.5 bg-white/50 backdrop-blur-xl rounded-[1rem] border border-white p-1 shadow-[0_8px_16px_rgba(0,0,0,0.04),inset_0_2px_4px_rgba(255,255,255,1)] shrink-0">
               <button 
                 onClick={() => setViewMode('grid')}
-                className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white shadow-[0_2px_8px_rgba(0,0,0,0.05),inset_0_2px_4px_rgba(255,255,255,1)] text-neutral-900' : 'text-neutral-500 hover:text-neutral-900'}`}
+                className={`p-1.5 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white shadow-[0_2px_8px_rgba(0,0,0,0.05),inset_0_2px_4px_rgba(255,255,255,1)] text-neutral-900' : 'text-neutral-500 hover:text-neutral-900'}`}
               >
-                <LayoutGrid className="w-4 h-4" />
+                <LayoutGrid className="w-3.5 h-3.5" />
               </button>
               <button 
                 onClick={() => setViewMode('list')}
-                className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white shadow-[0_2px_8px_rgba(0,0,0,0.05),inset_0_2px_4px_rgba(255,255,255,1)] text-neutral-900' : 'text-neutral-500 hover:text-neutral-900'}`}
+                className={`p-1.5 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white shadow-[0_2px_8px_rgba(0,0,0,0.05),inset_0_2px_4px_rgba(255,255,255,1)] text-neutral-900' : 'text-neutral-500 hover:text-neutral-900'}`}
               >
-                <List className="w-4 h-4" />
+                <List className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
@@ -408,7 +408,7 @@ export default function VoiceLibraryPage() {
                 <div className={`flex justify-between items-start w-full ${viewMode === 'list' ? 'hidden' : ''}`}>
                   <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-purple-50/50 to-pink-50/50 border border-neutral-200/60 flex items-center justify-center overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.04),inset_0_2px_4px_rgba(255,255,255,1)] shrink-0 group-hover:border-purple-200 transition-colors">
                     <img 
-                      src={`https://api.dicebear.com/9.x/micah/svg?seed=${voice.name}&backgroundColor=transparent`} 
+                      src={`https://api.dicebear.com/9.x/micah/svg?seed=${voice.name}&backgroundColor=transparent&mouth=smile,laughing`} 
                       alt={voice.name} 
                       className="w-full h-full object-cover scale-110 opacity-85 group-hover:opacity-100 transition-opacity" 
                     />

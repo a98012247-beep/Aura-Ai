@@ -53,7 +53,7 @@ export default function HistoryPage() {
         className="w-full px-4 md:px-6 py-6"
       >
         <div className="max-w-7xl mx-auto space-y-6">
-          <div className="flex items-end justify-between mb-8">
+          <div className="flex items-start justify-between mb-8">
             <div>
               <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight text-neutral-900 drop-shadow-sm">
                 Saved <span className="font-serif italic font-normal text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-600 drop-shadow-[0_2px_8px_rgba(16,185,129,0.3)]">Voiceovers.</span>
@@ -63,9 +63,17 @@ export default function HistoryPage() {
               </p>
             </div>
             
-            <div className="bg-white/50 backdrop-blur-md px-4 py-2 rounded-xl border border-neutral-200/80 shadow-[inset_0_1px_4px_rgba(0,0,0,0.03),0_2px_4px_rgba(255,255,255,1)] flex flex-col items-center justify-center shrink-0 mb-1 min-w-[90px]">
-               <span className="text-lg font-black text-neutral-900 leading-tight">{projects.length}</span>
-               <span className="text-[8px] font-bold text-neutral-400 uppercase tracking-widest mt-0.5">Total Projects</span>
+            <div className="flex items-center gap-2 bg-white/50 backdrop-blur-xl rounded-[1rem] border border-white p-1.5 pl-1.5 pr-3 shadow-[0_8px_16px_rgba(0,0,0,0.04),inset_0_2px_4px_rgba(255,255,255,1)] shrink-0 min-w-[100px] justify-center relative overflow-hidden group">
+              <div className="absolute -top-10 -right-10 w-32 h-32 bg-emerald-400/10 rounded-full blur-2xl pointer-events-none group-hover:bg-emerald-400/20 transition-colors duration-700"></div>
+              <div className="flex items-center gap-2 relative z-10 w-full">
+                <div className="w-7 h-7 rounded-[0.4rem] bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white shadow-[0_2px_8px_rgba(16,185,129,0.3),inset_0_2px_4px_rgba(255,255,255,0.4)] shrink-0">
+                  <span className="text-xs font-black">{projects.length}</span>
+                </div>
+                <div className="text-left w-full leading-tight">
+                  <div className="text-[8px] font-extrabold uppercase tracking-widest text-neutral-500 mb-0.5">Projects</div>
+                  <div className="font-extrabold text-neutral-900 text-[10px] drop-shadow-sm">Total Saved</div>
+                </div>
+              </div>
             </div>
           </div>
 
