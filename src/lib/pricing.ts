@@ -21,7 +21,7 @@ export const PRICING_PLANS: Plan[] = [
     formattedPrice: 'Rs 0',
     characterLimit: 10000,
     formattedCredits: '10,000 characters',
-    features: ['Standard Voices', 'Standard Generation Speed', 'Community Support']
+    features: ['Up to 10 minutes of voiceover', 'Standard generation', 'Premium voices', 'Community access']
   },
   {
     id: 'starter',
@@ -30,7 +30,7 @@ export const PRICING_PLANS: Plan[] = [
     formattedPrice: 'Rs 1,200',
     characterLimit: 150000,
     formattedCredits: '150,000 characters',
-    features: ['Premium Voices', 'Fast Generation Speed', 'Standard Support']
+    features: ['Up to 2.5 hours of voiceover', 'Fast generation', 'Premium voices', 'Community support']
   },
   {
     id: 'pro',
@@ -39,7 +39,7 @@ export const PRICING_PLANS: Plan[] = [
     formattedPrice: 'Rs 3,500',
     characterLimit: 500000,
     formattedCredits: '500,000 characters',
-    features: ['All Premium Voices', 'Highest Quality Audio', 'Priority Support', 'Early Access Features'],
+    features: ['Up to 8 hours of voiceover', 'Very fast generation', 'All premium voices', 'Private creator group'],
     recommended: true
   },
   {
@@ -47,9 +47,9 @@ export const PRICING_PLANS: Plan[] = [
     name: 'Business',
     price: 7000,
     formattedPrice: 'Rs 7,000',
-    characterLimit: 1250000,
-    formattedCredits: '1,250,000 characters',
-    features: ['100+ Projects', 'Dedicated Account Manager', 'Custom Voice API', '24/7 Phone Support']
+    characterLimit: 125000000,
+    formattedCredits: '125,000,000 characters',
+    features: ['Up to 2,000+ hours of voiceover', 'Fastest generation', 'All premium voices', 'Priority support']
   }
 ];
 

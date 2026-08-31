@@ -5,8 +5,9 @@ import { useAuthStore } from '../store/auth';
 import { useSettingsStore } from '../store/settings';
 import { SubscriptionPopup } from '../components/SubscriptionPopup';
 import { motion, AnimatePresence } from 'motion/react';
-import voicesData from '../data/voices.json';
-import { getAuthHeader } from '../services/elevenlabs';
+import { MASTER_CARTESIA_VOICES } from '../data/cartesiaVoices';
+import { getAuthHeader } from '../services/cartesia';
+import { useVoiceStore } from '../store/voices';
 import { getCachedPreview, saveCachedPreview } from '../utils/previewCache';
 
 interface Voice {
@@ -16,16 +17,23 @@ interface Voice {
   language: string;
   gender: string;
   country: string;
-  is_high_quality: boolean;
-  is_public: boolean;
-  accents_locales?: string;
+  is_public?: boolean;
+  accents?: { locale: string }[];
   age?: string;
 }
 
 export default function VoiceLibraryPage() {
-  const [voices, setVoices] = useState<Voice[]>(voicesData);
-  const [loading, setLoading] = useState(false);
+  const { voices, isLoading: loading, error: storeError, fetchCartesiaVoices } = useVoiceStore();
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchCartesiaVoices();
+  }, [fetchCartesiaVoices]);
+
+  useEffect(() => {
+    if (storeError) setError(storeError);
+  }, [storeError]);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
   const [previewLoadingId, setPreviewLoadingId] = useState<string | null>(null);
@@ -42,56 +50,14 @@ export default function VoiceLibraryPage() {
     setFavorites(next);
   };
 
-  const { apiKeys, updateApiKeyVoice } = useSettingsStore();
+  const { setActiveVoice } = useSettingsStore();
   const navigate = useNavigate();
-  
-  const handleSelectVoice = (voice: Voice) => {
-    if (activeKeyObj) {
-      updateApiKeyVoice(activeKeyObj.id, voice.id, voice.name);
-    }
+
+  const handleSelectVoice = (voice: any) => {
+    setActiveVoice(voice.id, voice.name);
     navigate('/studio');
   };
-  const activeKeyObj = useMemo(() => apiKeys.find(k => k.isActive && k.isValid), [apiKeys]);
 
-  useEffect(() => {
-    let isMounted = true;
-    async function loadApiVoices() {
-      if (!activeKeyObj) return;
-      setLoading(true);
-      try {
-        const authHeaders = await getAuthHeader();
-        const response = await fetch(`/api/cartesia/voices?apiKey=${encodeURIComponent(activeKeyObj.key)}`, {
-          headers: { ...authHeaders }
-        });
-        if (!response.ok) return;
-        const apiVoicesList = await response.json();
-        if (Array.isArray(apiVoicesList) && apiVoicesList.length > 0 && isMounted) {
-          const mappedApiVoices: Voice[] = apiVoicesList.map((v: any) => ({
-            id: v.id || v.voice_id,
-            name: v.name,
-            description: v.description || (v.is_cloned ? 'User Cloned Voice' : 'Awavox Voice'),
-            language: v.language || 'English',
-            gender: v.gender || 'neutral',
-            country: v.country || 'US',
-            is_high_quality: true,
-            is_public: v.is_cloned ? false : (v.is_public !== undefined ? v.is_public : true),
-            accents_locales: v.accents_locales || 'en-US',
-            age: v.age || 'adult'
-          }));
-
-          const existingIds = new Set(mappedApiVoices.map(v => v.id));
-          const restStatic = voicesData.filter(v => !existingIds.has(v.id));
-          setVoices([...mappedApiVoices, ...restStatic]);
-        }
-      } catch (err) {
-        console.warn("Failed to fetch custom API voices:", err);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    }
-    loadApiVoices();
-    return () => { isMounted = false; };
-  }, [activeKeyObj]);
 
   const [filters, setFilters] = useState({
     language: 'all',
@@ -116,7 +82,7 @@ export default function VoiceLibraryPage() {
     const countries = Array.from(new Set(voices.map(v => v.country))).filter(Boolean).sort();
     const ages = Array.from(new Set(voices.map(v => v.age).filter(Boolean))).sort();
     const accents = Array.from(new Set(voices.flatMap(v => 
-      v.accents_locales ? v.accents_locales.split(',').map(s => s.trim().split('-')[1]?.replace('*', '') || s.trim()) : []
+      v.accents ? v.accents.map((a: any) => a.locale) : []
     ).filter(Boolean))).sort();
     
     return { langs, genders, countries, ages, accents };
@@ -143,12 +109,21 @@ export default function VoiceLibraryPage() {
     try {
       let audioUrl = await getCachedPreview(voiceId);
       if (!audioUrl) {
-        const res = await fetch(`/api/voice/preview/${voiceId}`);
+        const previewText = "Welcome to Awavox AI, where your words come to life with incredibly realistic voice.";
+        const authHeaders = await getAuthHeader();
+        const res = await fetch('/api/cartesia/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeaders },
+          body: JSON.stringify({ text: previewText, voiceId, type: 'preview' })
+        });
+
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
           throw new Error(data.error || 'Failed to load preview audio');
         }
-        const blob = await res.blob();
+
+        const arrayBuffer = await res.arrayBuffer();
+        const blob = new Blob([arrayBuffer], { type: 'audio/mpeg' });
         await saveCachedPreview(voiceId, blob);
         audioUrl = URL.createObjectURL(blob);
       }
@@ -170,12 +145,12 @@ export default function VoiceLibraryPage() {
   const filteredAndOrderedVoices = useMemo(() => {
     const filtered = voices.filter(v => {
       const matchesSearch = v.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                           v.description?.toLowerCase().includes(searchQuery.toLowerCase());
+                           (v.description && v.description.toLowerCase().includes(searchQuery.toLowerCase()));
       const matchesLang = filters.language === 'all' || v.language === filters.language;
       const matchesGender = filters.gender === 'all' || v.gender === filters.gender;
       const matchesCountry = filters.country === 'all' || v.country === filters.country;
       const matchesAge = filters.age === 'all' || v.age === filters.age;
-      const matchesAccent = filters.accent === 'all' || (v.accents_locales && v.accents_locales.includes(filters.accent));
+      const matchesAccent = filters.accent === 'all' || (v.accents && v.accents.some((a: any) => a.locale === filters.accent));
 
       let matchesCategory = true;
       if (activeCategory === 'Favorites') matchesCategory = favorites.has(v.id);
@@ -184,8 +159,6 @@ export default function VoiceLibraryPage() {
     });
 
     return filtered.sort((a, b) => {
-      if (!a.is_public && b.is_public) return -1;
-      if (a.is_public && !b.is_public) return 1;
       return a.name.localeCompare(b.name);
     });
   }, [voices, searchQuery, filters, activeCategory, favorites]);

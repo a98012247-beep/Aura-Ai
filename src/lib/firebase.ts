@@ -5,7 +5,9 @@ import {
   signOut as firebaseSignOut, 
   onAuthStateChanged, 
   createUserWithEmailAndPassword,
-  updateProfile
+  updateProfile,
+  GoogleAuthProvider,
+  signInWithPopup
 } from "firebase/auth";
 import { 
   getFirestore, 
@@ -26,7 +28,6 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app, (firebaseConfig as any).firestoreDatabaseId);
 
-const ADMIN_EMAIL = 'a98012247@gmail.com';
 
 // @ts-ignore
 if (typeof window !== "undefined") {
@@ -38,8 +39,6 @@ export const signUp = async (name: string, phone: string, email: string, pass: s
   try {
     const result = await createUserWithEmailAndPassword(auth, email, pass);
     if (result.user) {
-      const isSystemAdmin = email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
-      
       try {
         await updateProfile(result.user, { displayName: name });
       } catch (pErr) {
@@ -51,7 +50,7 @@ export const signUp = async (name: string, phone: string, email: string, pass: s
         name: name || '',
         email: result.user.email,
         phone: phone || '',
-        role: isSystemAdmin ? 'admin' : 'free', // Simple user account by default!
+        role: 'free', // Simple user account by default!
         status: 'active',
         createdAt: serverTimestamp(),
         lastLoginAt: serverTimestamp()
@@ -73,7 +72,6 @@ export const logIn = async (email: string, pass: string) => {
   try {
     const result = await signInWithEmailAndPassword(auth, email, pass);
     if (result.user) {
-      const isSystemAdmin = email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
       const memberRef = doc(db, 'members', result.user.uid);
       const snap = await getDoc(memberRef);
 
@@ -83,7 +81,7 @@ export const logIn = async (email: string, pass: string) => {
           name: result.user.displayName || email.split('@')[0],
           email: result.user.email,
           phone: '',
-          role: isSystemAdmin ? 'admin' : 'free',
+          role: 'free',
           status: 'active',
           createdAt: serverTimestamp(),
           lastLoginAt: serverTimestamp()
@@ -110,6 +108,38 @@ export const signOut = async () => {
   } catch (error) {
     console.error("Error signing out", error);
     throw error;
+  }
+};
+
+export const googleLogin = async () => {
+  try {
+    const provider = new GoogleAuthProvider();
+    const result = await signInWithPopup(auth, provider);
+    if (result.user) {
+      const memberRef = doc(db, 'members', result.user.uid);
+      const snap = await getDoc(memberRef);
+
+      if (!snap.exists()) {
+        await setDoc(memberRef, {
+          uid: result.user.uid,
+          name: result.user.displayName || result.user.email?.split('@')[0] || 'User',
+          email: result.user.email,
+          phone: '',
+          role: 'free',
+          status: 'active',
+          createdAt: serverTimestamp(),
+          lastLoginAt: serverTimestamp()
+        });
+      } else {
+        await setDoc(memberRef, {
+          lastLoginAt: serverTimestamp()
+        }, { merge: true });
+      }
+    }
+    return result.user;
+  } catch (error: any) {
+    console.error("Error with Google Sign-In", error);
+    throw new Error('Google Sign-In failed. Please try again.');
   }
 };
 

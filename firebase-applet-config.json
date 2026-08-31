@@ -1,12 +1,10 @@
 {
-  "projectId": "gen-lang-client-0536731287",
-  "appId": "1:351852588736:web:94038720adbd9218324725",
-  "apiKey": "AIzaSyC5T5hqcyG409KBgg666Kx4I-D7ymc0TZw",
-  "authDomain": "gen-lang-client-0536731287.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-remixauravoiceai-6727bf29-474b-431f-a063-ba6ca9265594",
-  "storageBucket": "gen-lang-client-0536731287.firebasestorage.app",
-  "messagingSenderId": "351852588736",
-  "measurementId": "",
-  "oAuthClientId": "351852588736-cq15gh1q9mvjibrsluip02rmgheok4oi.apps.googleusercontent.com",
-  "recaptchaSiteKey": ""
+  "projectId": "awavox-ai-studio",
+  "appId": "1:407187630472:web:b8e2f54c051e975a01723d",
+  "storageBucket": "awavox-ai-studio.firebasestorage.app",
+  "apiKey": "AIzaSyCunYBPKlBzN_vkk1rEeW3DONsfDXbN9Gs",
+  "authDomain": "awavox-ai-studio.firebaseapp.com",
+  "messagingSenderId": "407187630472",
+  "measurementId": "G-DQT8E7T2KV",
+  "firestoreDatabaseId": "(default)"
 }

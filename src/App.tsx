@@ -19,8 +19,7 @@ import { doc, getDoc } from 'firebase/firestore';
 
 function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
-  const apiKeys = useSettingsStore(state => state.apiKeys);
-  const activeKey = apiKeys.find(k => k.isActive);
+  const activeVoiceId = useSettingsStore(state => state.activeVoiceId);
   const { user, setUser, setLoading, memberProfile, setMemberProfile } = useAuthStore();
 
   useEffect(() => {
@@ -102,7 +101,7 @@ function Layout({ children }: { children: React.ReactNode }) {
              >
                <Settings className="w-5 h-5" />
                <span>Settings</span>
-               {activeKey ? (
+               {activeVoiceId ? (
                   <span className="absolute right-4 w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"></span>
                ) : (
                   <span className="absolute right-4 w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)]"></span>
@@ -233,7 +232,7 @@ function Layout({ children }: { children: React.ReactNode }) {
          <Link to="/settings" className={`flex flex-col items-center gap-1 transition-colors relative ${location.pathname === '/settings' ? 'text-white' : 'text-neutral-500 hover:text-neutral-300'}`}>
            <Settings className="w-5 h-5" />
            <span>Settings</span>
-           {activeKey && <span className="absolute top-0 right-1 w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"></span>}
+           {activeVoiceId && <span className="absolute top-0 right-1 w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"></span>}
          </Link>
          <Link to="/account" className={`flex flex-col items-center gap-1 transition-colors ${location.pathname === '/account' ? 'text-white' : 'text-neutral-500 hover:text-neutral-300'}`}>
            <UserIcon className="w-5 h-5" />

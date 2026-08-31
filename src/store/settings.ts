@@ -125,141 +125,48 @@ export const PRESET_PROFILES: VoiceProfile[] = [
   }
 ];
 
-export type ApiProvider = 'cartesia';
-
-export interface ApiKey {
-  id: string;
-  name: string;
-  key: string;
-  provider?: ApiProvider;
-  isActive: boolean;
-  isValid: boolean;
-  voiceId?: string;
-  voiceName?: string;
-  activeProfileId?: string | null;
-  resetDate?: number;
-}
-
 interface SettingsState {
-  apiKeys: ApiKey[];
+  // Active voice selection (single source of truth — no API keys on frontend)
+  activeVoiceId: string;
+  activeVoiceName: string;
+  setActiveVoice: (voiceId: string, voiceName: string) => void;
+  getActiveVoiceId: () => string;
+
+  // Cinematic & voice settings
   voiceSettings: VoiceSettings;
   cinematicSettings: CinematicSettings;
   voiceProfiles: VoiceProfile[];
   activeProfileId: string | null;
-  addApiKey: (name: string, key: string, provider?: ApiProvider) => void;
-  removeApiKey: (id: string) => void;
-  setActiveApiKey: (id: string) => void;
-  updateApiKeyVoice: (id: string, voiceId: string, voiceName: string) => void;
-  updateApiKeyResetDate: (id: string, resetDate: number) => void;
-  markKeyInvalid: (id: string) => void;
-  getActiveKey: () => string | null;
-  autoSwitchKey: () => boolean;
+  autoSaveEnabled: boolean;
+  setAutoSaveEnabled: (enabled: boolean) => void;
   updateVoiceSettings: (settings: Partial<VoiceSettings>) => void;
   updateCinematicSettings: (settings: Partial<CinematicSettings>) => void;
   saveVoiceProfile: (name: string) => void;
   deleteVoiceProfile: (id: string) => void;
   applyVoiceProfile: (id: string) => void;
   resetToDefaultProfile: () => void;
-  autoSaveEnabled: boolean;
-  setAutoSaveEnabled: (enabled: boolean) => void;
 }
+
+// Default voice: "Jade - Steady Companion" from Cartesia
+const DEFAULT_VOICE_ID = '92579402-6868-412e-b845-3efed0be7a9e';
+const DEFAULT_VOICE_NAME = 'Jade - Steady Companion';
 
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set, get) => ({
-      apiKeys: [],
+      activeVoiceId: DEFAULT_VOICE_ID,
+      activeVoiceName: DEFAULT_VOICE_NAME,
       voiceProfiles: [],
       autoSaveEnabled: false,
       activeProfileId: PRESET_PROFILES[0].id,
       voiceSettings: { ...PRESET_PROFILES[0].voiceSettings },
       cinematicSettings: { ...PRESET_PROFILES[0].cinematicSettings },
-      addApiKey: (name, key, provider = 'cartesia') =>
-        set((state) => {
-          const newKeys = [
-            ...state.apiKeys.map((k) => ({ ...k, isActive: false })),
-            { 
-              id: uuidv4(), 
-              name, 
-              key, 
-              provider: 'cartesia' as const, 
-              isActive: true, 
-              isValid: true, 
-              voiceId: '92579402-6868-412e-b845-3efed0be7a9e', 
-              voiceName: 'Jade - Steady Companion', 
-              activeProfileId: PRESET_PROFILES[0].id,
-              resetDate: Date.now() + 30 * 24 * 60 * 60 * 1000 // 30 days from now
-            },
-          ];
-          return { apiKeys: newKeys };
-        }),
-      removeApiKey: (id) =>
-        set((state) => {
-          const newKeys = state.apiKeys.filter((k) => k.id !== id);
-          if (newKeys.length > 0 && !newKeys.some((k) => k.isActive)) {
-            newKeys[0].isActive = true;
-          }
-          return { apiKeys: newKeys };
-        }),
-      setActiveApiKey: (id) =>
-        set((state) => {
-          const keyData = state.apiKeys.find(k => k.id === id);
-          
-          if (keyData?.activeProfileId) {
-             const profile = PRESET_PROFILES.find(p => p.id === keyData.activeProfileId) || state.voiceProfiles.find(p => p.id === keyData.activeProfileId);
-             if (profile) {
-                return {
-                  apiKeys: state.apiKeys.map((k) => ({ ...k, isActive: k.id === id })),
-                  activeProfileId: profile.id,
-                  voiceSettings: { ...profile.voiceSettings },
-                  cinematicSettings: { ...profile.cinematicSettings }
-                };
-             }
-          }
 
-          return {
-            apiKeys: state.apiKeys.map((k) => ({
-              ...k,
-              isActive: k.id === id,
-            })),
-          };
-        }),
-      updateApiKeyVoice: (id, voiceId, voiceName) =>
-        set((state) => ({
-          apiKeys: state.apiKeys.map((k) =>
-            k.id === id ? { ...k, voiceId, voiceName } : k
-          ),
-        })),
-      updateApiKeyResetDate: (id, resetDate) =>
-        set((state) => ({
-          apiKeys: state.apiKeys.map((k) =>
-            k.id === id ? { ...k, resetDate } : k
-          ),
-        })),
-      markKeyInvalid: (id) =>
-        set((state) => ({
-          apiKeys: state.apiKeys.map((k) =>
-            k.id === id ? { ...k, isValid: false, isActive: false } : k
-          ),
-        })),
-      getActiveKey: () => {
-        const state = get();
-        const activeKey = state.apiKeys.find((k) => k.isActive && k.isValid);
-        return activeKey ? activeKey.key : null;
-      },
-      autoSwitchKey: () => {
-        const state = get();
-        const activeIdx = state.apiKeys.findIndex((k) => k.isActive);
-        if (activeIdx !== -1) {
-           get().markKeyInvalid(state.apiKeys[activeIdx].id);
-        }
-        // find next valid key
-        const nextValid = get().apiKeys.find((k) => k.isValid && !k.isActive);
-        if (nextValid) {
-          get().setActiveApiKey(nextValid.id);
-          return true; // successfully switched
-        }
-        return false; // no valid keys left
-      },
+      setActiveVoice: (voiceId: string, voiceName: string) =>
+        set({ activeVoiceId: voiceId, activeVoiceName: voiceName }),
+
+      getActiveVoiceId: () => get().activeVoiceId || DEFAULT_VOICE_ID,
+
       updateVoiceSettings: (settings) =>
         set((state) => ({
           voiceSettings: { ...state.voiceSettings, ...settings },
@@ -268,7 +175,7 @@ export const useSettingsStore = create<SettingsState>()(
       updateCinematicSettings: (settings) =>
         set((state) => ({
           cinematicSettings: { ...state.cinematicSettings, ...settings },
-          activeProfileId: null, // Custom edit makes it no longer match precisely
+          activeProfileId: null,
         })),
       saveVoiceProfile: (name: string) =>
         set((state) => {
@@ -300,17 +207,15 @@ export const useSettingsStore = create<SettingsState>()(
               activeProfileId: id,
               voiceSettings: { ...profile.voiceSettings },
               cinematicSettings: { ...profile.cinematicSettings },
-              apiKeys: state.apiKeys.map(k => k.isActive ? { ...k, activeProfileId: id } : k)
             };
           }
           return {};
         }),
       resetToDefaultProfile: () =>
-        set((state) => ({
+        set(() => ({
           activeProfileId: PRESET_PROFILES[0].id,
           voiceSettings: { ...PRESET_PROFILES[0].voiceSettings },
           cinematicSettings: { ...PRESET_PROFILES[0].cinematicSettings },
-          apiKeys: state.apiKeys.map(k => k.isActive ? { ...k, activeProfileId: PRESET_PROFILES[0].id } : k)
         })),
       setAutoSaveEnabled: (enabled: boolean) => set({ autoSaveEnabled: enabled }),
     }),

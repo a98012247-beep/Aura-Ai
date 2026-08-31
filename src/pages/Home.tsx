@@ -1,18 +1,31 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Play, Mic2, Star, CheckCircle2, ArrowRight, Sparkles, Waves, Shield, Pause, Zap, Crown, Briefcase, Globe2, FileText, MousePointerClick, Download, Youtube, Podcast, BookOpen, Target, Quote, Music } from 'lucide-react';
+import { Play, Mic2, Star, CheckCircle2, ArrowRight, Sparkles, Waves, Shield, Pause, Zap, Crown, Briefcase, Globe2, FileText, MousePointerClick, Download, Youtube, Podcast, BookOpen, Target, Quote, Music, Loader2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { SubscriptionPopup } from '../components/SubscriptionPopup';
 import { PRICING_PLANS } from '../lib/pricing';
+import { useVoiceStore } from '../store/voices';
+import { getCachedPreview, saveCachedPreview } from '../utils/previewCache';
+import { getAuthHeader } from '../services/cartesia';
 import voicesData from '../data/voices.json';
 
 export default function Home() {
   const [showSubscription, setShowSubscription] = useState(false);
-  const [playingId, setPlayingId] = useState<number | null>(null);
+  const [playingId, setPlayingId] = useState<string | null>(null);
+  const [previewLoadingId, setPreviewLoadingId] = useState<string | null>(null);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [isHovering, setIsHovering] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const navigate = useNavigate();
+
+  const { voices, fetchCartesiaVoices } = useVoiceStore();
+
+  useEffect(() => {
+    fetchCartesiaVoices();
+  }, [fetchCartesiaVoices]);
+
+  const voicesData = voices.slice(0, 24);
 
   useEffect(() => {
     let animationFrameId: number;
@@ -36,8 +49,56 @@ export default function Home() {
     return () => cancelAnimationFrame(animationFrameId);
   }, [isHovering]);
 
-  const handlePlay = (id: number) => {
-    setPlayingId(playingId === id ? null : id);
+  const handlePlay = async (voiceId: string) => {
+    if (playingId === voiceId && audioRef.current) {
+      if (audioRef.current.paused) {
+        audioRef.current.play();
+      } else {
+        audioRef.current.pause();
+        setPlayingId(null);
+      }
+      return;
+    }
+
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+
+    setPreviewLoadingId(voiceId);
+
+    try {
+      let audioUrl = await getCachedPreview(voiceId);
+      if (!audioUrl) {
+        const previewText = "Welcome to Awavox AI, where your words come to life with incredibly realistic voice.";
+        const authHeaders = await getAuthHeader();
+        const res = await fetch('/api/cartesia/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeaders },
+          body: JSON.stringify({ text: previewText, voiceId, type: 'preview' })
+        });
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || 'Failed to load preview audio');
+        }
+        
+        const arrayBuffer = await res.arrayBuffer();
+        const blob = new Blob([arrayBuffer], { type: 'audio/mpeg' });
+        await saveCachedPreview(voiceId, blob);
+        audioUrl = URL.createObjectURL(blob);
+      }
+
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+      
+      audio.addEventListener('ended', () => setPlayingId(null));
+      await audio.play();
+      setPlayingId(voiceId);
+    } catch (err: any) {
+      console.error("Preview error:", err);
+    } finally {
+      setPreviewLoadingId(null);
+    }
   };
 
   const openPricing = () => {
@@ -235,10 +296,10 @@ export default function Home() {
                   <img src={`https://api.dicebear.com/7.x/micah/svg?seed=${voice.name}&backgroundColor=f3e8ff&mouth=smile,laughing`} alt={voice.name} className="w-14 h-14 rounded-[1.25rem] shadow-[0_4px_12px_rgba(168,85,247,0.15)] bg-gradient-to-br from-purple-50 to-pink-50 border border-white" />
                 </div>
                 <button
-                  onClick={() => handlePlay(idx + 10)}
+                  onClick={() => handlePlay(voice.id)}
                   className="w-10 h-10 rounded-full bg-gradient-to-b from-neutral-800 to-neutral-900 text-white flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-[0_8px_16px_rgba(0,0,0,0.2),inset_0_2px_4px_rgba(255,255,255,0.2)] border border-neutral-700 mt-1 mr-1 shrink-0"
                 >
-                  {playingId === idx + 10 ? <Pause className="w-4 h-4 fill-current drop-shadow-md" /> : <Play className="w-4 h-4 ml-0.5 fill-current drop-shadow-md" />}
+                  {previewLoadingId === voice.id ? <Loader2 className="w-4 h-4 animate-spin text-white/70" /> : playingId === voice.id ? <Pause className="w-4 h-4 fill-current drop-shadow-md" /> : <Play className="w-4 h-4 ml-0.5 fill-current drop-shadow-md" />}
                 </button>
               </div>
               <div className="flex-1 relative z-10">

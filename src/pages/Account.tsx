@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { LogIn, LogOut, User, Lock, Mail, UserPlus, Phone, ShieldCheck, Zap, Sparkles, MessageCircle, Users, FileText, Info, HelpCircle } from 'lucide-react';
 import { useAuthStore } from '../store/auth';
-import { logIn, signUp, signOut, db } from '../lib/firebase';
+import { logIn, signUp, signOut, googleLogin, db } from '../lib/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { SubscriptionPopup } from '../components/SubscriptionPopup';
 import { motion } from 'motion/react';
@@ -97,6 +97,19 @@ export default function AccountPage() {
         msg = 'Invalid password or account does not exist. Switch to Register if you are new.';
       }
       setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSubmit = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      await googleLogin();
+    } catch (err: any) {
+      console.error("Google Auth error:", err);
+      setError(err.message || 'Google Sign-In failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -232,7 +245,9 @@ export default function AccountPage() {
 
             <button
               type="button"
-              className="flex items-center justify-center gap-2 w-full bg-white border border-neutral-200/80 hover:bg-neutral-50 text-neutral-900 px-4 py-2 rounded-xl text-[10px] font-black transition-all shadow-sm hover:shadow-md active:scale-[0.98]"
+              onClick={handleGoogleSubmit}
+              disabled={loading}
+              className="flex items-center justify-center gap-2 w-full bg-white border border-neutral-200/80 hover:bg-neutral-50 text-neutral-900 px-4 py-2 rounded-xl text-[10px] font-black transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50"
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="w-3.5 h-3.5">
                 <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/>

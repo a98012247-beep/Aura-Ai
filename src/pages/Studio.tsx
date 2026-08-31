@@ -5,9 +5,10 @@ import { cn } from '../lib/utils';
 import { useSettingsStore, PRESET_PROFILES } from '../store/settings';
 import { useProjectsStore } from '../store/projects';
 import { useAuthStore } from '../store/auth';
+import { useVoiceStore } from '../store/voices';
 import { SubscriptionPopup } from '../components/SubscriptionPopup';
 import { motion } from 'motion/react';
-import voicesData from '../data/voices.json';
+import { MASTER_CARTESIA_VOICES } from '../data/cartesiaVoices';
 
 export default function StudioPage() {
   const { draftScript, updateDraftScript } = useProjectsStore();
@@ -17,6 +18,13 @@ export default function StudioPage() {
   const [showSubscription, setShowSubscription] = useState(false);
   const [isVoicePickerOpen, setIsVoicePickerOpen] = useState(false);
   const [visibleCount, setVisibleCount] = useState(24);
+  const { voices: voicesData, fetchCartesiaVoices } = useVoiceStore();
+
+  useEffect(() => {
+    fetchCartesiaVoices();
+  }, [fetchCartesiaVoices]);
+
+  
 
   const isPro = memberProfile?.role === 'pro' || memberProfile?.role === 'admin';
 
@@ -27,51 +35,24 @@ export default function StudioPage() {
       setShowSubscription(true);
     }
   }, [error]);
-  const getActiveKey = useSettingsStore(state => state.getActiveKey);
-  const apiKeys = useSettingsStore(state => state.apiKeys);
-  const activeKeyData = apiKeys.find(k => k.key === getActiveKey());
-  const activeVoiceName = activeKeyData?.voiceName || 'Default Aura Voice';
+
+  const activeVoiceId = useSettingsStore(state => state.activeVoiceId);
+  const activeVoiceName = useSettingsStore(state => state.activeVoiceName) || 'Default Aura Voice';
+  const activeProfileId = useSettingsStore(state => state.activeProfileId);
   const voiceProfiles = useSettingsStore(state => state.voiceProfiles);
 
   const safeString = (str: string) => str.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-  
+
   const generateFilename = () => {
-    if (!activeKeyData) return `aura-narration-${Date.now()}.mp3`;
-    
-    const profileName = PRESET_PROFILES.find(p => p.id === activeKeyData.activeProfileId)?.name 
-      || voiceProfiles.find(p => p.id === activeKeyData.activeProfileId)?.name 
+    const profileName = PRESET_PROFILES.find(p => p.id === activeProfileId)?.name
+      || voiceProfiles.find(p => p.id === activeProfileId)?.name
       || "Custom Profile";
-
-    const vName = safeString(activeKeyData.voiceName || 'voice');
+    const vName = safeString(activeVoiceName || 'voice');
     const pName = safeString(profileName);
-    const platformName = 'cartesia';
-    const aName = safeString(activeKeyData.name || 'api');
-
-    return `${vName}-${pName}-${platformName}-${aName}-${Date.now()}.mp3`;
+    return `${vName}-${pName}-cartesia-${Date.now()}.mp3`;
   };
 
-  const [activeCredits, setActiveCredits] = React.useState<{used: number, total: number, tier: string} | null>(null);
-
-  useEffect(() => {
-    async function loadCredits() {
-       if (activeKeyData?.key) {
-          try {
-            const { fetchSubscription } = await import('../services/elevenlabs');
-            const data = await fetchSubscription(activeKeyData.key);
-            setActiveCredits({
-               used: data.character_count || 0,
-               total: data.character_limit || 0,
-               tier: data.tier || 'Cartesia API'
-            });
-          } catch(e) {
-            console.error('Failed to load active credits:', e);
-          }
-       } else {
-          setActiveCredits(null);
-       }
-    }
-    loadCredits();
-  }, [activeKeyData?.key]);
+  const [activeCredits] = React.useState<{used: number, total: number, tier: string} | null>(null);
 
   const audioRef = React.useRef<HTMLAudioElement>(null);
   const { cinematicSettings } = useSettingsStore();
@@ -278,17 +259,17 @@ export default function StudioPage() {
                     <button
                       key={v.id}
                       onClick={() => {
-                        if (activeKeyData) useSettingsStore.getState().updateApiKeyVoice(activeKeyData.id, v.id, v.name);
+                        useSettingsStore.getState().setActiveVoice(v.id, v.name);
                         setIsVoicePickerOpen(false);
                       }}
-                      className={`w-full flex items-center gap-3 p-3 rounded-2xl border transition-all text-left group ${activeKeyData?.voiceId === v.id ? 'bg-purple-50 border-purple-200 shadow-sm' : 'bg-white border-neutral-100 hover:border-purple-200 hover:bg-purple-50/50'}`}
+                      className={`w-full flex items-center gap-3 p-3 rounded-2xl border transition-all text-left group ${activeVoiceId === v.id ? 'bg-purple-50 border-purple-200 shadow-sm' : 'bg-white border-neutral-100 hover:border-purple-200 hover:bg-purple-50/50'}`}
                     >
                       <div className="relative shrink-0">
                         <img src={`https://api.dicebear.com/7.x/micah/svg?seed=${v.name}&backgroundColor=f3e8ff&mouth=smile,laughing`} alt={v.name} className="w-10 h-10 rounded-xl shadow-sm bg-purple-50 border border-purple-100/50" />
-                        {activeKeyData?.voiceId === v.id && <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full"></div>}
+                        {activeVoiceId === v.id && <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full"></div>}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h4 className={`font-extrabold text-xs truncate ${activeKeyData?.voiceId === v.id ? 'text-purple-900' : 'text-neutral-900 group-hover:text-purple-700'}`}>{v.name}</h4>
+                        <h4 className={`font-extrabold text-xs truncate ${activeVoiceId === v.id ? 'text-purple-900' : 'text-neutral-900 group-hover:text-purple-700'}`}>{v.name}</h4>
                         <p className="text-[9px] text-neutral-500 uppercase tracking-widest font-bold mt-0.5">High Quality</p>
                       </div>
                     </button>
@@ -306,17 +287,17 @@ export default function StudioPage() {
                     <button
                       key={v.id}
                       onClick={() => {
-                        if (activeKeyData) useSettingsStore.getState().updateApiKeyVoice(activeKeyData.id, v.id, v.name);
+                        useSettingsStore.getState().setActiveVoice(v.id, v.name);
                         setIsVoicePickerOpen(false);
                       }}
-                      className={`w-full flex items-center gap-3 p-3 rounded-2xl border transition-all text-left group ${activeKeyData?.voiceId === v.id ? 'bg-purple-50 border-purple-200 shadow-sm' : 'bg-white border-neutral-100 hover:border-purple-200 hover:bg-purple-50/50'}`}
+                      className={`w-full flex items-center gap-3 p-3 rounded-2xl border transition-all text-left group ${activeVoiceId === v.id ? 'bg-purple-50 border-purple-200 shadow-sm' : 'bg-white border-neutral-100 hover:border-purple-200 hover:bg-purple-50/50'}`}
                     >
                       <div className="relative shrink-0">
                         <img src={`https://api.dicebear.com/7.x/micah/svg?seed=${v.name}&backgroundColor=f3e8ff&mouth=smile,laughing`} alt={v.name} className="w-10 h-10 rounded-xl shadow-sm bg-purple-50 border border-purple-100/50" />
-                        {activeKeyData?.voiceId === v.id && <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full"></div>}
+                        {activeVoiceId === v.id && <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full"></div>}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h4 className={`font-extrabold text-xs truncate ${activeKeyData?.voiceId === v.id ? 'text-purple-900' : 'text-neutral-900 group-hover:text-purple-700'}`}>{v.name}</h4>
+                        <h4 className={`font-extrabold text-xs truncate ${activeVoiceId === v.id ? 'text-purple-900' : 'text-neutral-900 group-hover:text-purple-700'}`}>{v.name}</h4>
                         <p className="text-[9px] text-neutral-500 uppercase tracking-widest font-bold mt-0.5">High Quality</p>
                       </div>
                     </button>

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { chunkScript } from '../services/textProcessing';
-import { generateAudioChunk, mergeAudioChunks, verifyVoiceAccess, ElevenLabsError } from '../services/elevenlabs';
+import { generateAudioChunk, mergeAudioChunks, CartesiaError } from '../services/cartesia';
 import { useSettingsStore } from './settings';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { get, set, del } from 'idb-keyval';
@@ -43,7 +43,7 @@ export const useGenerationStore = create<GenerationState>()(
       statusText: null,
       finalAudioBlob: null,
       finalAudioUrl: null,
-      
+
       reset: () => set({
         isGenerating: false,
         progress: 0,
@@ -56,132 +56,112 @@ export const useGenerationStore = create<GenerationState>()(
       }),
 
       generate: async (text: string) => {
-    if (!text.trim()) {
-      set({ error: 'Script is empty.' });
-      return;
-    }
+        if (!text.trim()) {
+          set({ error: 'Script is empty.' });
+          return;
+        }
 
-    const { getActiveKey, autoSwitchKey } = useSettingsStore.getState();
-    let currentApiKey = getActiveKey();
+        const settingsState = useSettingsStore.getState();
+        const voiceId = settingsState.getActiveVoiceId();
+        const voiceName = settingsState.activeVoiceName;
 
-    if (!currentApiKey) {
-      set({ error: 'No active API key found. Please add one in Settings.' });
-      return;
-    }
+        if (!voiceId) {
+          set({ error: 'No voice selected. Please select a voice from the Voice Library.' });
+          return;
+        }
 
-    set({ 
-      isGenerating: true, 
-      error: null, 
-      statusText: 'Initializing...',
-      finalAudioBlob: null, 
-      finalAudioUrl: null,
-      progress: 0,
-      currentChunk: 0
-    });
+        set({
+          isGenerating: true,
+          error: null,
+          statusText: 'Initializing...',
+          finalAudioBlob: null,
+          finalAudioUrl: null,
+          progress: 0,
+          currentChunk: 0
+        });
 
-    try {
-      set({ statusText: 'Verifying voice access...' });
-      const hasVoice = await verifyVoiceAccess(currentApiKey);
-      if (!hasVoice) {
-         set({ error: 'The currently mapped voice ID is not available in this API key account. Please go to Settings to map a valid voice.', isGenerating: false, statusText: null });
-         return;
-      }
-      
-      const { optimizeScript } = await import('../services/textProcessing');
-      const optimizedText = optimizeScript(text);
-      
-      set({ totalChunks: 1 });
-      
-      const audioBuffers: ArrayBuffer[] = [];
-
-      set({ 
-        currentChunk: 1, 
-        progress: 50,
-        statusText: `Generating audio...`
-      });
-      
-      let success = false;
-      let attempts = 0;
-      const maxAttempts = 5;
-      
-      while (!success && attempts < maxAttempts) {
         try {
-           const buffer = await generateAudioChunk(optimizedText, currentApiKey!);
-           audioBuffers.push(buffer);
-           success = true;
-        } catch (error: any) {
-           console.error(`Generation attempt ${attempts+1} failed`, error);
-           
-           const isRateLimit = 
-             (error instanceof ElevenLabsError && error.status === 429) || 
-             (error.message && error.message.toLowerCase().includes('rate limit'));
+          const { optimizeScript } = await import('../services/textProcessing');
 
-           const isUnusualActivity = error.message && error.message.toLowerCase().includes('unusual activity');
+          set({ statusText: 'Optimizing script for speech...' });
+          const optimizedText = await optimizeScript(text);
 
-           if (isRateLimit && !isUnusualActivity) {
-             attempts++;
-             if (attempts >= maxAttempts) {
-               throw new Error('API Rate Limit exceeded after multiple retries.');
-             }
-             
-             const waitTime = Math.pow(2, attempts) * 1000 + (Math.random() * 500);
-             set({ statusText: `Temporary API cooldown. Retrying in ${Math.round(waitTime/1000)}s...` });
-             await sleep(waitTime);
-           } else if ((error instanceof ElevenLabsError && error.status === 401) || isUnusualActivity) {
-               const switched = autoSwitchKey();
-               if (switched) {
-                 currentApiKey = getActiveKey();
-                 console.log('Switched to next API key', currentApiKey);
-                 set({ statusText: 'Key exhausted. Switched to new API key. Retrying...' });
-                 // continue loop to retry immediately with new key
-               } else {
-                 throw new Error('All API keys exhausted or invalid.');
-               }
-           } else {
-               throw new Error(error.message || 'Error generating audio.');
-           }
+          set({ statusText: 'Chunking script...' });
+          const chunks = chunkScript(optimizedText);
+          set({ totalChunks: chunks.length });
+
+          const audioBuffers: ArrayBuffer[] = [];
+
+          for (let i = 0; i < chunks.length; i++) {
+            set({
+              currentChunk: i + 1,
+              progress: Math.round((i / chunks.length) * 100),
+              statusText: `Generating chunk ${i + 1} of ${chunks.length}...`
+            });
+
+            let success = false;
+            let attempts = 0;
+            const maxAttempts = 3;
+
+            while (!success && attempts < maxAttempts) {
+              try {
+                const buffer = await generateAudioChunk(chunks[i], voiceId, 'generation');
+                audioBuffers.push(buffer);
+                success = true;
+              } catch (error: any) {
+                attempts++;
+                console.error(`Chunk ${i + 1} attempt ${attempts} failed:`, error.message);
+
+                const isRateLimit =
+                  (error instanceof CartesiaError && error.status === 429) ||
+                  (error.message && error.message.toLowerCase().includes('rate limit'));
+
+                if (isRateLimit && attempts < maxAttempts) {
+                  const waitTime = Math.pow(2, attempts) * 1000 + (Math.random() * 500);
+                  set({ statusText: `Rate limited. Retrying in ${Math.round(waitTime / 1000)}s...` });
+                  await sleep(waitTime);
+                } else {
+                  throw new Error(error.message || 'Error generating audio chunk.');
+                }
+              }
+            }
+          }
+
+          set({ progress: 100, statusText: 'Finalizing audio...' });
+
+          const mergedBlob = mergeAudioChunks(audioBuffers);
+
+          const reader = new FileReader();
+          reader.onloadend = async () => {
+            const url = reader.result as string;
+
+            const title = text.split('\n').filter(l => l.trim() !== '')[0] || 'Untitled Project';
+            const { useProjectsStore } = await import('./projects');
+            useProjectsStore.getState().addProject({
+              title: title.substring(0, 50) + (title.length > 50 ? '...' : ''),
+              script: text,
+              audioUrl: url,
+              voiceSettings: useSettingsStore.getState().voiceSettings,
+              cinematicSettings: useSettingsStore.getState().cinematicSettings,
+              voiceName: voiceName || 'Cartesia Voice',
+            });
+
+            set({
+              finalAudioBlob: mergedBlob,
+              finalAudioUrl: url,
+              isGenerating: false,
+              statusText: null
+            });
+          };
+          reader.readAsDataURL(mergedBlob);
+
+        } catch (e: any) {
+          set({ error: e.message || 'An unexpected error occurred.', isGenerating: false, statusText: null });
         }
       }
-
-      set({ progress: 100, statusText: 'Finalizing audio...' });
-      
-      const mergedBlob = mergeAudioChunks(audioBuffers);
-      
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const url = reader.result as string;
-        
-        // Auto-save to projects store
-        const title = text.split('\n').filter(l => l.trim() !== '')[0] || 'Untitled Project';
-        
-        // Wait to import here to avoid circular dep if needed, but it's safe at top
-        const { useProjectsStore } = await import('./projects');
-        const activeKeyStr = useSettingsStore.getState().getActiveKey();
-        const activeKeyData = useSettingsStore.getState().apiKeys.find(k => k.key === activeKeyStr);
-        useProjectsStore.getState().addProject({
-          title: title.substring(0, 50) + (title.length > 50 ? '...' : ''),
-          script: text,
-          audioUrl: url,
-          voiceSettings: useSettingsStore.getState().voiceSettings,
-          cinematicSettings: useSettingsStore.getState().cinematicSettings,
-          voiceName: activeKeyData?.voiceName || 'Default Aura Voice',
-        });
-
-        set({ 
-          finalAudioBlob: mergedBlob,
-          finalAudioUrl: url,
-          isGenerating: false,
-          statusText: null
-        });
-      };
-      reader.readAsDataURL(mergedBlob);
-
-    } catch (e: any) {
-      set({ error: e.message || 'An unexpected error occurred.', isGenerating: false, statusText: null });
-    }
-  }
-}), {
-  name: 'aura-generation-store',
-  storage: createJSONStorage(() => idbStorage),
-  partialize: (state) => ({ finalAudioUrl: state.finalAudioUrl }), // Only persist audio URL
-}));
+    }), {
+      name: 'aura-generation-store',
+      storage: createJSONStorage(() => idbStorage),
+      partialize: (state) => ({ finalAudioUrl: state.finalAudioUrl }),
+    })
+);
