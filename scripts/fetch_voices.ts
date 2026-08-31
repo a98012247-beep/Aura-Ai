@@ -29,7 +29,7 @@ async function fetchVoices() {
     method: "GET",
     headers: {
       "X-API-Key": apiKey,
-      "Cartesia-Version": "2024-06-10"
+      "Cartesia-Version": "2026-08-14"
     }
   });
 

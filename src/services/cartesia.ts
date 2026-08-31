@@ -11,15 +11,16 @@ export async function getAuthHeader(): Promise<Record<string, string>> {
       console.warn("Could not auto sign-in anonymously:", e);
     }
   }
+  const headers: Record<string, string> = {};
   if (user) {
     try {
       const token = await user.getIdToken();
-      return { 'Authorization': `Bearer ${token}` };
+      headers['Authorization'] = `Bearer ${token}`;
     } catch (e) {
       console.warn("Could not get auth token:", e);
     }
   }
-  return {};
+  return headers;
 }
 
 export class CartesiaError extends Error {
@@ -31,18 +32,30 @@ export class CartesiaError extends Error {
 }
 
 export async function parseApiError(response: Response): Promise<string> {
-  let errText = response.statusText;
+  let errText = response.statusText || `HTTP ${response.status}`;
   try {
     const raw = await response.text();
     if (!raw) return errText;
     try {
       const err = JSON.parse(raw);
-      errText = err.error || err.message || JSON.stringify(err);
+      if (typeof err === 'object' && err !== null) {
+        if (typeof err.message === 'string' && err.message.trim()) {
+          return err.message.trim();
+        }
+        if (typeof err.error === 'string' && err.error.trim()) {
+          try {
+            const nested = JSON.parse(err.error);
+            if (nested && nested.message) return nested.message;
+          } catch {}
+          return err.error.trim();
+        }
+      }
+      errText = typeof err === 'string' ? err : JSON.stringify(err);
     } catch {
       errText = raw;
     }
   } catch {
-    errText = "Failed to parse API error response";
+    errText = response.statusText || `HTTP ${response.status}`;
   }
   return errText;
 }

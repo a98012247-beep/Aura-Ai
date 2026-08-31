@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sliders, Play, Disc3, Loader2, UploadCloud, X } from 'lucide-react';
+import { Sliders, Play, Disc3, Loader2, UploadCloud, X, AlertCircle } from 'lucide-react';
 import { useSettingsStore, StorytellingMode, PRESET_PROFILES } from '../store/settings';
 import { generateAudioChunk } from '../services/cartesia';
 import { useAuthStore } from '../store/auth';
@@ -66,18 +66,16 @@ export default function SettingsPage() {
     }
     setIsPreviewing(true);
     setPreviewError(null);
+
+    const script = "Donald Trump became one of the most recognized people on Earth. But long before politics... there was only ambition.";
     try {
-      const script = "Donald Trump became one of the most recognized people on Earth. But long before politics... there was only ambition.";
       const buffer = await generateAudioChunk(script, activeVoiceId, 'preview');
       const blob = new Blob([buffer], { type: 'audio/mpeg' });
       const url = URL.createObjectURL(blob);
       setPreviewUrl(url);
     } catch (err: any) {
-      if (err.message && (err.message.includes('PRO_REQUIRED') || err.message.toLowerCase().includes('pro subscription'))) {
-        setShowSubscription(true);
-      } else {
-        setPreviewError(err.message || 'Failed to generate preview audio.');
-      }
+      console.warn("Cartesia preview generation notice:", err.message || err);
+      setPreviewError(err.message || 'Failed to generate preview audio from Cartesia API. Please check Admin API key configuration.');
     } finally {
       setIsPreviewing(false);
     }

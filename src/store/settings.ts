@@ -126,7 +126,7 @@ export const PRESET_PROFILES: VoiceProfile[] = [
 ];
 
 interface SettingsState {
-  // Active voice selection (single source of truth — no API keys on frontend)
+  // Active voice selection (single source of truth)
   activeVoiceId: string;
   activeVoiceName: string;
   setActiveVoice: (voiceId: string, voiceName: string) => void;

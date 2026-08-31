@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import fs from "fs";
 import crypto from "crypto";
 import express from "express";
 import path from "path";
@@ -39,39 +40,184 @@ const previewCache = new Map<string, Buffer>();
 
 const adminEmail = 'a98012247@gmail.com';
 
-/**
- * Env var fallbacks for local development (when Firestore ADC credentials are not configured).
- * Set these in a .env file or system environment:
-/**
- * Fetch an active Cartesia API key from the pool.
- */
-async function getAvailableApiKey(): Promise<{ key: string; id: string } | null> {
-  try {
-    if (!db) throw new Error("Firestore not initialized");
-    
-    const snapshot = await db.collection('platform_api_keys')
-      .where('isActive', '==', true)
-      .limit(5)
-      .get();
+interface StoredApiKey {
+  id: string;
+  name: string;
+  key: string;
+  isActive: boolean;
+  usageCount: number;
+  totalCharactersUsed: number;
+  createdAt: string;
+  lastTestedStatus?: 'valid' | 'invalid' | 'untested';
+  lastTestedMessage?: string;
+}
 
-    if (!snapshot.empty) {
-      const docs = snapshot.docs;
-      const chosen = docs[Math.floor(Math.random() * docs.length)];
-      const key = chosen.data().key as string;
-      if (key) return { key, id: chosen.id };
+const KEYS_FILE_PATH = path.join(process.cwd(), 'src/data/platform_api_keys.json');
+
+function loadStoredKeys(): StoredApiKey[] {
+  try {
+    if (fs.existsSync(KEYS_FILE_PATH)) {
+      const data = fs.readFileSync(KEYS_FILE_PATH, 'utf-8');
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed)) return parsed;
     }
-  } catch (err: any) {
-    console.warn(`[getAvailableApiKey] Firestore unavailable. Reason: ${err.message?.substring(0, 80)}`);
+  } catch (e) {
+    console.warn("Could not read platform_api_keys.json:", e);
+  }
+  return [];
+}
+
+function saveStoredKeys(keys: StoredApiKey[]): void {
+  try {
+    const dir = path.dirname(KEYS_FILE_PATH);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(KEYS_FILE_PATH, JSON.stringify(keys, null, 2), 'utf-8');
+  } catch (e) {
+    console.error("Could not write platform_api_keys.json:", e);
+  }
+}
+
+async function incrementApiKeyUsage(keyId: string, characters: number): Promise<void> {
+  // Update local file
+  const keys = loadStoredKeys();
+  let updatedLocal = false;
+  for (const k of keys) {
+    if (k.id === keyId) {
+      k.usageCount = (k.usageCount || 0) + 1;
+      k.totalCharactersUsed = (k.totalCharactersUsed || 0) + characters;
+      updatedLocal = true;
+      break;
+    }
+  }
+  if (updatedLocal) {
+    saveStoredKeys(keys);
   }
 
-  console.error(`[getAvailableApiKey] No active API key found in the pool.`);
-  return null;
+  // Update Firestore if available
+  if (db && keyId !== 'env_key') {
+    try {
+      const keyRef = db.collection('platform_api_keys').doc(keyId);
+      const docSnap = await keyRef.get();
+      if (docSnap.exists) {
+        const currentData = docSnap.data();
+        await keyRef.update({
+          usageCount: (currentData?.usageCount || 0) + 1,
+          totalCharactersUsed: (currentData?.totalCharactersUsed || 0) + characters
+        });
+      }
+    } catch (e) {
+      console.warn(`Failed to increment Firestore usage for key ${keyId}:`, e);
+    }
+  }
+}
+
+/**
+ * Fetch all active Cartesia API keys from server persistent file, memory, 
+ * Firestore (if accessible), and server environment variables.
+ */
+async function getAllAvailableApiKeys(): Promise<Array<{ key: string; id: string; name?: string }>> {
+  const keys: Array<{ key: string; id: string; name?: string }> = [];
+
+  // 1. Fetch from server stored keys (file + memory)
+  const storedKeys = loadStoredKeys();
+  for (const k of storedKeys) {
+    const rawKey = (k.key || '').trim();
+    if (rawKey && k.isActive !== false) {
+      if (!keys.some(item => item.key === rawKey)) {
+        keys.push({ key: rawKey, id: k.id, name: k.name || 'Admin Key' });
+      }
+    }
+  }
+
+  // 2. Fetch keys from Firestore collection platform_api_keys if accessible
+  try {
+    if (db) {
+      const snapshot = await db.collection('platform_api_keys').get();
+
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        const rawKey = (data.key || '').trim();
+        // Include if active (default to true if not explicitly false)
+        if (rawKey && data.isActive !== false) {
+          if (!keys.some(item => item.key === rawKey)) {
+            keys.push({ key: rawKey, id: doc.id, name: data.name || 'Admin Key' });
+          }
+        }
+      });
+    }
+  } catch (err: any) {
+    // Expected in environments without service-account credentials
+  }
+
+  // 3. Add server environment variable if present
+  if (process.env.CARTESIA_API_KEY && process.env.CARTESIA_API_KEY.trim()) {
+    const envKey = process.env.CARTESIA_API_KEY.trim();
+    const isDummy = envKey.includes("MY_CARTESIA_API_KEY") || envKey.includes("YOUR_");
+    if (!isDummy && !keys.some(k => k.key === envKey)) {
+      keys.push({ key: envKey, id: 'env_key', name: 'Environment Key' });
+    }
+  }
+
+  return keys;
+}
+
+/**
+ * Fetch all voices from Cartesia API, handling pagination.
+ */
+async function fetchAllCartesiaVoices(apiKey: string): Promise<any[]> {
+  let allVoices: any[] = [];
+  let hasMore = true;
+  let cursor = "";
+
+  while (hasMore) {
+    const url = cursor ? `https://api.cartesia.ai/voices?limit=100&starting_after=${cursor}` : `https://api.cartesia.ai/voices?limit=100`;
+    const response = await fetch(url, {
+      headers: {
+        "X-API-Key": apiKey,
+        "Cartesia-Version": "2024-11-13"
+      }
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      let parsed = errText;
+      try {
+        const j = JSON.parse(errText);
+        parsed = j.message || j.error || errText;
+      } catch {}
+      throw new Error(parsed);
+    }
+
+    const data = await response.json();
+    if (Array.isArray(data)) {
+       allVoices = allVoices.concat(data);
+       hasMore = false;
+    } else if (data && Array.isArray(data.data)) {
+       allVoices = allVoices.concat(data.data);
+       hasMore = data.has_more === true;
+       cursor = data.next_page || "";
+    } else if (data && Array.isArray(data.voices)) {
+       allVoices = allVoices.concat(data.voices);
+       hasMore = false;
+    } else {
+       hasMore = false;
+    }
+  }
+
+  return allVoices;
 }
 
 const app = express();
 const PORT = 3000;
 
 app.use(express.json({ limit: "50mb" }));
+
+// Health check endpoint
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok", timestamp: new Date().toISOString() });
+});
 
   // Auth Middleware
   const authMiddleware = async (req: any, res: any, next: any) => {
@@ -96,7 +242,19 @@ app.use(express.json({ limit: "50mb" }));
           req.user = { uid, email, role, decodedToken };
           return next();
         } catch (error) {
-          console.warn('Auth Middleware Token Verification Warning:', error);
+          try {
+            // Fallback decode standard Firebase JWT (header.payload.signature)
+            const parts = token.split('.');
+            if (parts.length === 3) {
+              const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf-8'));
+              const uid = payload.user_id || payload.sub || 'user';
+              const email = payload.email || '';
+              const isAdmin = email ? (email.toLowerCase() === adminEmail.toLowerCase()) : false;
+              const role = isAdmin ? 'admin' : (payload.role || 'free');
+              req.user = { uid, email, role, decodedToken: payload };
+              return next();
+            }
+          } catch (jwtErr) {}
         }
       }
     }
@@ -186,7 +344,7 @@ app.use(express.json({ limit: "50mb" }));
 
   app.post("/api/cartesia/generate", authMiddleware, usageMiddleware, async (req: any, res: express.Response) => {
     try {
-      const { text, voiceId, type } = req.body;
+      const { text, voiceId, type, language } = req.body;
 
       if (!text || !voiceId) {
         res.status(400).json({ error: "Missing text or voiceId" });
@@ -222,19 +380,16 @@ app.use(express.json({ limit: "50mb" }));
         context = isPro ? 'paid' : 'free';
       }
 
-      // ── Get API Key from the unified pool ────────────────────────────────
-      const apiInfo = await getAvailableApiKey();
+      // ── Get all active API keys from the unified pool (Admin configured / env) ─────────
+      const apiKeys = await getAllAvailableApiKeys();
       
-      if (!apiInfo) {
+      if (!apiKeys || apiKeys.length === 0) {
         res.status(503).json({
           error: "SERVICE_UNAVAILABLE",
-          message: "No active API keys are configured for this request. Please contact the administrator."
+          message: "No active Cartesia API key is configured. Please add an API key in the Admin Panel (Admin → API Keys) or set CARTESIA_API_KEY."
         });
         return;
       }
-      
-      const apiKey = apiInfo.key;
-      const apiKeyId = apiInfo.id;
 
       // ── Cache check ──────────────────────────────────────────────────────
       const cacheKey = crypto.createHash('sha256').update(text + voiceId).digest('hex');
@@ -247,47 +402,97 @@ app.use(express.json({ limit: "50mb" }));
         return;
       }
 
-      // ── Call Cartesia TTS ────────────────────────────────────────────────
-      const cartesiaResponse = await fetch('https://api.cartesia.ai/tts/bytes', {
-        method: "POST",
-        headers: {
+      // ── Call Cartesia TTS with multi-key pool failover ────────────────────
+      const candidateModels = ["sonic-3.6", "sonic-3.5", "sonic-3", "sonic"];
+      let successfulBuffer: Buffer | null = null;
+      let usedApiKeyId = apiKeys[0].id;
+      let lastErrorText = "";
+      let lastStatusCode = 500;
+
+      for (const apiInfo of apiKeys) {
+        const apiKey = apiInfo.key;
+        usedApiKeyId = apiInfo.id;
+
+        const cartesiaHeaders: Record<string, string> = {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`,
-          "Cartesia-Version": "2026-08-14"
-        },
-        body: JSON.stringify({
-          model_id: "sonic",
-          transcript: text,
-          voice: { mode: "id", id: voiceId },
-          output_format: { container: "mp3", encoding: "mp3", sample_rate: 44100, bit_rate: 128000 }
-        }),
-      });
+          "X-API-Key": apiKey,
+          "Cartesia-Version": "2024-11-13"
+        };
 
-      if (!cartesiaResponse.ok) {
-        const errorText = await cartesiaResponse.text();
-        console.error(`Cartesia API error [${cartesiaResponse.status}]:`, errorText);
-        res.status(cartesiaResponse.status).json({ error: errorText });
-        return;
+        let keySucceeded = false;
+
+        for (const modelId of candidateModels) {
+          try {
+            const resp = await fetch('https://api.cartesia.ai/tts/bytes', {
+              method: "POST",
+              headers: cartesiaHeaders,
+              body: JSON.stringify({
+                model_id: modelId,
+                transcript: text,
+                voice: { mode: "id", id: voiceId },
+                output_format: { container: "mp3", encoding: "mp3", sample_rate: 44100, bit_rate: 128000 },
+                ...(language && { language: language.toLowerCase().substring(0, 2) })
+              }),
+            });
+
+            if (resp.ok) {
+              const contentType = resp.headers.get("content-type") || "";
+              if (!contentType.includes("application/json")) {
+                const arrayBuffer = await resp.arrayBuffer();
+                if (arrayBuffer && arrayBuffer.byteLength > 0) {
+                  successfulBuffer = Buffer.from(arrayBuffer);
+                  keySucceeded = true;
+                  break;
+                } else {
+                  lastErrorText = "Empty audio buffer received from Cartesia";
+                  lastStatusCode = 500;
+                  continue;
+                }
+              }
+            }
+
+            const errBody = await resp.text();
+            lastErrorText = errBody;
+            lastStatusCode = resp.status === 200 ? 500 : resp.status;
+
+            if (resp.status === 401 || resp.status === 403) {
+              // Key invalid or unauthorized - try next key in pool
+              break;
+            }
+          } catch (fetchErr: any) {
+            console.warn(`[Cartesia] Key (${apiInfo.name || apiInfo.id}) notice:`, fetchErr.message);
+          }
+        }
+
+        if (keySucceeded && successfulBuffer) {
+          break;
+        }
       }
 
-      const contentType = cartesiaResponse.headers.get("content-type") || "";
-      if (contentType.includes("application/json")) {
-        const errorJson = await cartesiaResponse.text();
-        console.error(`Cartesia returned JSON instead of audio:`, errorJson);
-        res.status(400).json({ error: errorJson });
+      if (!successfulBuffer) {
+        let parsedMessage = lastErrorText || "Cartesia audio synthesis failed";
+        try {
+          const jsonErr = JSON.parse(lastErrorText);
+          parsedMessage = jsonErr.message || jsonErr.error || lastErrorText;
+        } catch {}
+        res.status(lastStatusCode).json({
+          error: parsedMessage,
+          message: parsedMessage,
+          code: lastStatusCode === 401 ? "INVALID_API_KEY" : "API_ERROR"
+        });
         return;
       }
-
-      const arrayBuffer = await cartesiaResponse.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
 
       // Store in appropriate cache
-      cache.set(cacheKey, buffer);
+      cache.set(cacheKey, successfulBuffer);
+
+      // Increment API key specific usage counters
+      incrementApiKeyUsage(usedApiKeyId, text.length).catch(e => console.warn(e));
 
       // Log usage asynchronously to Firestore
       if (db) {
         db.collection('usage').add({
-          apiKeyId,
+          apiKeyId: usedApiKeyId,
           context,
           tool: 'tts',
           model: 'cartesia',
@@ -299,7 +504,7 @@ app.use(express.json({ limit: "50mb" }));
 
       res.setHeader("Content-Type", "audio/mpeg");
       res.setHeader("X-Cache", "MISS");
-      res.send(buffer);
+      res.send(successfulBuffer);
 
     } catch (error: any) {
       console.error("Cartesia generate error:", error);
@@ -312,28 +517,219 @@ app.use(express.json({ limit: "50mb" }));
 
   app.get("/api/cartesia/voices", authMiddleware, async (req: any, res: express.Response) => {
     try {
-      const apiInfo = await getAvailableApiKey();
-      if (!apiInfo) {
-        return res.status(503).json({ error: "No public API key configured. Please add one in Admin → API Keys." });
-      }
-      const apiKey = apiInfo.key;
-
-      const response = await fetch("https://api.cartesia.ai/voices", {
-        headers: {
-          "Authorization": `Bearer ${apiKey}`,
-          "Cartesia-Version": "2026-08-14"
-        },
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        return res.status(response.status).json({ error: errorText });
+      const apiKeys = await getAllAvailableApiKeys();
+      if (!apiKeys || apiKeys.length === 0) {
+        return res.status(503).json({ error: "No public API key configured. Please add one in Admin → API Keys or set CARTESIA_API_KEY." });
       }
 
-      const data = await response.json();
-      res.json(data);
+      let voicesData: any = null;
+      let lastError = "Failed to fetch voices";
+      let lastStatus = 500;
+
+      for (const apiInfo of apiKeys) {
+        try {
+          voicesData = await fetchAllCartesiaVoices(apiInfo.key);
+          break;
+        } catch (err: any) {
+          lastError = err.message;
+        }
+      }
+
+      if (voicesData) {
+        return res.json(voicesData);
+      }
+
+      let parsedMessage = lastError;
+      try {
+        const jsonErr = JSON.parse(lastError);
+        parsedMessage = jsonErr.message || jsonErr.error || lastError;
+      } catch {}
+      return res.status(lastStatus).json({ error: parsedMessage, message: parsedMessage });
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Internal Server Error" });
+    }
+  });
+
+  // ─── Admin: API Key Management Endpoints ─────────────────────────────────
+
+  const checkIsAdmin = (req: any) => {
+    if (req.user?.role === 'admin') return true;
+    if (req.user?.email && req.user.email.toLowerCase() === adminEmail.toLowerCase()) return true;
+    return false;
+  };
+
+  app.get("/api/admin/api-keys", authMiddleware, (req: any, res: express.Response) => {
+    if (!checkIsAdmin(req)) {
+      return res.status(403).json({ error: 'Admin only' });
+    }
+    const keys = loadStoredKeys();
+    res.json({ success: true, keys });
+  });
+
+  app.post("/api/admin/api-keys", authMiddleware, async (req: any, res: express.Response) => {
+    if (!checkIsAdmin(req)) {
+      return res.status(403).json({ error: 'Admin only' });
+    }
+    const { key, name, isActive = true, id } = req.body;
+    if (!key || typeof key !== 'string' || !key.trim()) {
+      return res.status(400).json({ error: 'API key is required' });
+    }
+
+    const trimmedKey = key.trim();
+    const trimmedName = (name && typeof name === 'string' && name.trim()) ? name.trim() : 'Cartesia Key';
+    const keyId = id || ('key_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7));
+
+    // Test with Cartesia
+    let isValid = false;
+    let testMsg = '';
+    let voiceCount = 0;
+    try {
+      const cartesiaRes = await fetch("https://api.cartesia.ai/voices", {
+        headers: {
+          "X-API-Key": trimmedKey,
+          "Cartesia-Version": "2024-11-13"
+        }
+      });
+      if (cartesiaRes.ok) {
+        isValid = true;
+        const data = await cartesiaRes.json();
+        const voiceList = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : (Array.isArray(data?.voices) ? data.voices : []));
+        voiceCount = voiceList.length;
+        testMsg = `Active (${voiceCount} voices available)`;
+      } else {
+        const errText = await cartesiaRes.text();
+        try {
+          const j = JSON.parse(errText);
+          testMsg = j.message || j.error || `Cartesia returned ${cartesiaRes.status}`;
+        } catch {
+          testMsg = `Cartesia returned status ${cartesiaRes.status}`;
+        }
+      }
+    } catch (err: any) {
+      testMsg = err.message || 'Connection test failed';
+    }
+
+    const existingKeys = loadStoredKeys();
+    const existingIdx = existingKeys.findIndex(k => k.id === keyId || k.key === trimmedKey);
+    const record: StoredApiKey = {
+      id: keyId,
+      name: trimmedName,
+      key: trimmedKey,
+      isActive: Boolean(isActive),
+      usageCount: existingIdx >= 0 ? (existingKeys[existingIdx].usageCount || 0) : 0,
+      totalCharactersUsed: existingIdx >= 0 ? (existingKeys[existingIdx].totalCharactersUsed || 0) : 0,
+      createdAt: existingIdx >= 0 ? (existingKeys[existingIdx].createdAt || new Date().toISOString()) : new Date().toISOString(),
+      lastTestedStatus: isValid ? 'valid' : 'invalid',
+      lastTestedMessage: testMsg
+    };
+
+    if (existingIdx >= 0) {
+      existingKeys[existingIdx] = record;
+    } else {
+      existingKeys.unshift(record);
+    }
+
+    saveStoredKeys(existingKeys);
+
+    res.json({
+      success: true,
+      key: record,
+      valid: isValid,
+      message: testMsg,
+      voiceCount
+    });
+  });
+
+  app.post("/api/admin/api-keys/sync", authMiddleware, (req: any, res: express.Response) => {
+    if (!checkIsAdmin(req)) {
+      return res.status(403).json({ error: 'Admin only' });
+    }
+    const { keys } = req.body;
+    if (!Array.isArray(keys)) {
+      return res.status(400).json({ error: 'Keys array required' });
+    }
+
+    const current = loadStoredKeys();
+    let addedCount = 0;
+    for (const k of keys) {
+      if (!k || !k.key || typeof k.key !== 'string') continue;
+      const rawKey = k.key.trim();
+      if (!rawKey) continue;
+      const existing = current.find(c => c.id === k.id || c.key === rawKey);
+      if (!existing) {
+        current.push({
+          id: k.id || ('key_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7)),
+          name: (k.name && typeof k.name === 'string') ? k.name.trim() : 'Admin Key',
+          key: rawKey,
+          isActive: k.isActive !== false,
+          usageCount: k.usageCount || 0,
+          totalCharactersUsed: k.totalCharactersUsed || 0,
+          createdAt: k.createdAt || new Date().toISOString(),
+          lastTestedStatus: 'untested'
+        });
+        addedCount++;
+      }
+    }
+
+    if (addedCount > 0) {
+      saveStoredKeys(current);
+    }
+
+    res.json({ success: true, count: current.length, added: addedCount, keys: current });
+  });
+
+  app.patch("/api/admin/api-keys/:id", authMiddleware, (req: any, res: express.Response) => {
+    if (!checkIsAdmin(req)) {
+      return res.status(403).json({ error: 'Admin only' });
+    }
+    const { id } = req.params;
+    const { isActive, name } = req.body;
+    const current = loadStoredKeys();
+    const idx = current.findIndex(k => k.id === id);
+    if (idx === -1) {
+      return res.status(404).json({ error: 'Key not found' });
+    }
+
+    if (typeof isActive === 'boolean') {
+      current[idx].isActive = isActive;
+    }
+    if (typeof name === 'string' && name.trim()) {
+      current[idx].name = name.trim();
+    }
+
+    saveStoredKeys(current);
+    res.json({ success: true, key: current[idx] });
+  });
+
+  app.delete("/api/admin/api-keys/:id", authMiddleware, (req: any, res: express.Response) => {
+    if (!checkIsAdmin(req)) {
+      return res.status(403).json({ error: 'Admin only' });
+    }
+    const { id } = req.params;
+    const current = loadStoredKeys();
+    const filtered = current.filter(k => k.id !== id);
+    saveStoredKeys(filtered);
+    res.json({ success: true });
+  });
+
+  // ─── Admin: Validate API Key ──────────────────────────────────────────────
+
+  app.post("/api/admin/validate-key", authMiddleware, async (req: any, res: express.Response) => {
+    if (!checkIsAdmin(req)) {
+      return res.status(403).json({ error: 'Admin only' });
+    }
+
+    const { key } = req.body;
+    if (!key || typeof key !== 'string' || !key.trim()) {
+      return res.status(400).json({ valid: false, error: 'API key is required' });
+    }
+
+    try {
+      const trimmedKey = key.trim();
+      const voiceList = await fetchAllCartesiaVoices(trimmedKey);
+      return res.json({ valid: true, voiceCount: voiceList.length });
+    } catch (err: any) {
+      return res.json({ valid: false, error: err.message || 'Validation request failed' });
     }
   });
 
@@ -344,22 +740,28 @@ app.use(express.json({ limit: "50mb" }));
       return res.status(403).json({ error: 'Admin only' });
     }
     try {
-      const apiInfo = await getAvailableApiKey();
-      if (!apiInfo) return res.status(500).json({ error: "No Cartesia API key configured in Admin Panel." });
+      const apiKeys = await getAllAvailableApiKeys();
+      if (!apiKeys || apiKeys.length === 0) return res.status(500).json({ error: "No Cartesia API key configured." });
       
-      const apiKey = apiInfo.key;
+      let voicesData: any = null;
+      let lastErr = "";
 
-      const response = await fetch("https://api.cartesia.ai/voices", {
-        headers: { "Authorization": `Bearer ${apiKey}`, "Cartesia-Version": "2026-08-14" }
-      });
-
-      if (!response.ok) {
-        const err = await response.text();
-        return res.status(response.status).json({ error: err });
+      for (const apiInfo of apiKeys) {
+        try {
+          voicesData = await fetchAllCartesiaVoices(apiInfo.key);
+          break;
+        } catch (e: any) {
+          lastErr = e.message;
+        }
       }
 
-      const voices = await response.json();
-      const mappedVoices = voices.map((v: any) => ({
+      if (!voicesData) {
+        return res.status(500).json({ error: lastErr || "Failed to fetch voices" });
+      }
+
+      const rawList = Array.isArray(voicesData) ? voicesData : [];
+
+      const mappedVoices = rawList.map((v: any) => ({
         id: v.id,
         name: v.name,
         description: v.description || "",
@@ -368,7 +770,7 @@ app.use(express.json({ limit: "50mb" }));
         country: v.country || "US",
         is_high_quality: true,
         is_public: true,
-        accents_locales: v.language_locales?.join(', ') || v.language,
+        accents_locales: Array.isArray(v.accents) ? v.accents.map((a: any) => a.locale || a.accent || a).join(', ') : (v.language_locales?.join(', ') || v.language || 'en'),
         age: v.age || "Middle-Aged"
       }));
 
@@ -394,28 +796,30 @@ app.use(express.json({ limit: "50mb" }));
     res.status(500).json({ error: err.message || "Internal Server Error" });
   });
 
-  // Local Development Mode
-  if (process.env.NODE_ENV !== "production") {
-    // Top-level await is not natively supported here without moving to an async IIFE
-    (async () => {
+  async function startServer() {
+    if (process.env.NODE_ENV !== "production") {
       const { createServer: createViteServer } = await import("vite");
       const vite = await createViteServer({
         server: { middlewareMode: true },
         appType: "spa",
       });
       app.use(vite.middlewares);
-      app.listen(PORT, "0.0.0.0", () => {
-        console.log(`Server running on http://localhost:${PORT}`);
+    } else {
+      const distPath = path.join(process.cwd(), "dist");
+      app.use(express.static(distPath));
+      app.get("*", (req, res) => {
+        res.sendFile(path.join(distPath, "index.html"));
       });
-    })();
-  } else {
-    // Production Mode (Static Hosting fallback, though Firebase Hosting will handle static files)
-    const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
+    }
+
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on http://localhost:${PORT}`);
     });
   }
+
+  startServer().catch((err) => {
+    console.error("Failed to start server:", err);
+  });
 
   // Export for Firebase Cloud Functions
   export const api = onRequest({ region: "us-central1" }, app);

@@ -1,0 +1,27 @@
+[
+  {
+    "id": "key_1788200887235_50fff",
+    "name": "aaa",
+    "key": "sk_car_9J1qnmLYaMvTkcEi5b7Qxq",
+    "isActive": true,
+    "usageCount": 5,
+    "totalCharactersUsed": 259,
+    "createdAt": "2026-08-31T18:28:06.142Z",
+    "lastTestedStatus": "valid",
+    "lastTestedMessage": "Active (10 voices available)"
+  },
+  {
+    "id": "ziQ9hGNNVvahrHBBLQ96",
+    "name": "aaa",
+    "key": "sk_car_qJXquAqMNmuyYbkjLNnxpZ",
+    "isActive": true,
+    "usageCount": 0,
+    "totalCharactersUsed": 0,
+    "createdAt": {
+      "type": "firestore/timestamp/1.0",
+      "seconds": 1788198710,
+      "nanoseconds": 417000000
+    },
+    "lastTestedStatus": "untested"
+  }
+]

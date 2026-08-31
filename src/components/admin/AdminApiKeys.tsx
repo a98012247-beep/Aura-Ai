@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Key, RefreshCw, Zap, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Plus, Trash2, Key, RefreshCw, Zap, ToggleLeft, ToggleRight, CheckCircle2, XCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { AdminCard, AdminTable, SectionHeader, StatCard, AdminModal, AdminInput, AdminButton } from './AdminShared';
 import { db } from '../../lib/firebase';
 import { collection, addDoc, serverTimestamp, deleteDoc, updateDoc, doc } from 'firebase/firestore';
+import { getAuthHeader } from '../../services/cartesia';
 
 interface PlatformApiKey {
   id: string;
@@ -35,26 +36,120 @@ interface AdminApiKeysProps {
 export const AdminApiKeys: React.FC<AdminApiKeysProps> = ({ apiKeys, usage, fetchData, onSyncVoices }) => {
   const [showAdd, setShowAdd] = useState(false);
   const [newKey, setNewKey] = useState({ key: '', name: '' });
+  const [isTestingNew, setIsTestingNew] = useState(false);
+  const [testResult, setTestResult] = useState<{ valid: boolean; message: string } | null>(null);
+  const [testingId, setTestingId] = useState<string | null>(null);
+  const [keyStatuses, setKeyStatuses] = useState<Record<string, { valid: boolean; message: string }>>({});
+
+  const testKey = async (rawKey: string): Promise<{ valid: boolean; message: string }> => {
+    try {
+      const headers = await getAuthHeader();
+      const res = await fetch('/api/admin/validate-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({ key: rawKey.trim() })
+      });
+      const data = await res.json();
+      if (data.valid) {
+        return { valid: true, message: `Active (${data.voiceCount} voices available)` };
+      } else {
+        return { valid: false, message: data.error || 'Invalid credentials' };
+      }
+    } catch (err: any) {
+      return { valid: false, message: err.message || 'Connection test failed' };
+    }
+  };
+
+  const handleTestInTable = async (id: string, keyVal: string) => {
+    setTestingId(id);
+    const result = await testKey(keyVal);
+    setKeyStatuses(prev => ({ ...prev, [id]: result }));
+    setTestingId(null);
+  };
+
+  const handleTestNewKey = async () => {
+    if (!newKey.key.trim()) return;
+    setIsTestingNew(true);
+    setTestResult(null);
+    const res = await testKey(newKey.key);
+    setTestResult(res);
+    setIsTestingNew(false);
+  };
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newKey.key || !newKey.name) return;
-    await addDoc(collection(db, 'platform_api_keys'), {
-      ...newKey, isActive: true, usageCount: 0, totalCharactersUsed: 0, createdAt: serverTimestamp()
-    });
+    if (!newKey.key.trim() || !newKey.name.trim()) return;
+    
+    const keyVal = newKey.key.trim();
+    const nameVal = newKey.name.trim();
+
+    try {
+      // 1. Persist directly to backend server pool
+      const headers = await getAuthHeader();
+      await fetch('/api/admin/api-keys', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({
+          key: keyVal,
+          name: nameVal,
+          isActive: true
+        })
+      });
+    } catch (apiErr) {
+      console.warn("Server API key registration notice:", apiErr);
+    }
+
+    // 2. Also save to Firestore collection for durability
+    try {
+      await addDoc(collection(db, 'platform_api_keys'), {
+        name: nameVal,
+        key: keyVal,
+        isActive: true,
+        usageCount: 0,
+        totalCharactersUsed: 0,
+        createdAt: serverTimestamp()
+      });
+    } catch (fsErr) {
+      console.warn("Firestore save notice:", fsErr);
+    }
+
     setNewKey({ key: '', name: '' });
+    setTestResult(null);
     setShowAdd(false);
     fetchData();
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this API key?')) return;
-    await deleteDoc(doc(db, 'platform_api_keys', id));
+    if (!confirm('Delete this API key from the active pool?')) return;
+    try {
+      const headers = await getAuthHeader();
+      await fetch(`/api/admin/api-keys/${id}`, {
+        method: 'DELETE',
+        headers
+      });
+    } catch (e) {}
+
+    try {
+      await deleteDoc(doc(db, 'platform_api_keys', id));
+    } catch (e) {}
+
     fetchData();
   };
 
   const toggleActive = async (id: string, current: boolean) => {
-    await updateDoc(doc(db, 'platform_api_keys', id), { isActive: !current });
+    try {
+      const headers = await getAuthHeader();
+      await fetch(`/api/admin/api-keys/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({ isActive: !current })
+      });
+    } catch (e) {}
+
+    try {
+      await updateDoc(doc(db, 'platform_api_keys', id), { isActive: !current });
+    } catch (e) {}
+
     fetchData();
   };
 
@@ -74,11 +169,11 @@ export const AdminApiKeys: React.FC<AdminApiKeysProps> = ({ apiKeys, usage, fetc
 
   return (
     <div className="space-y-6">
-      <SectionHeader title="API Keys" subtitle="Manage Cartesia API keys and track usage contexts">
+      <SectionHeader title="API Keys" subtitle="Manage Cartesia AI platform keys and test live connection validity">
         <AdminButton variant="secondary" icon={<RefreshCw className="w-4 h-4" />} onClick={onSyncVoices}>
           Sync Voices
         </AdminButton>
-        <AdminButton icon={<Plus className="w-4 h-4" />} onClick={() => setShowAdd(true)}>
+        <AdminButton icon={<Plus className="w-4 h-4" />} onClick={() => { setTestResult(null); setShowAdd(true); }}>
           Add Key
         </AdminButton>
       </SectionHeader>
@@ -95,32 +190,64 @@ export const AdminApiKeys: React.FC<AdminApiKeysProps> = ({ apiKeys, usage, fetc
           <h3 className="text-sm font-bold text-slate-900 dark:text-slate-900">Cartesia Key Pool</h3>
         </div>
         <AdminTable
-          headers={['Label', 'Key', 'Usage (Historical)', 'Status', 'Actions']}
+          headers={['Label', 'Key', 'Live Validation', 'Status', 'Actions']}
           isEmpty={apiKeys.length === 0}
-          emptyMessage="No API keys configured."
+          emptyMessage="No API keys configured. Click 'Add Key' to add your Cartesia API key."
         >
-          {apiKeys.map(pk => (
-            <tr key={pk.id} className="hover:bg-white/50 transition-colors">
-              <td className="px-5 py-3.5 text-sm text-slate-700 dark:text-slate-700 font-bold">{pk.name}</td>
-              <td className="px-5 py-3.5 font-mono text-xs text-slate-500">sk_...{pk.key.substring(pk.key.length - 4)}</td>
-              <td className="px-5 py-3.5 text-xs text-slate-500">{pk.totalCharactersUsed?.toLocaleString() || 0} chars</td>
-              <td className="px-5 py-3.5">
-                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border ${pk.isActive ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20' : 'bg-slate-700/50 text-slate-500 border-slate-600/30'}`}>
-                  {pk.isActive ? 'Active' : 'Inactive'}
-                </span>
-              </td>
-              <td className="px-5 py-3.5 text-right">
-                <div className="flex items-center justify-end gap-1">
-                  <button onClick={() => toggleActive(pk.id, pk.isActive)} className="p-1.5 text-slate-500 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-colors" title="Toggle Active">
-                    {pk.isActive ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />}
-                  </button>
-                  <button onClick={() => handleDelete(pk.id)} className="p-1.5 text-slate-600 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors" title="Delete">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))}
+          {apiKeys.map(pk => {
+            const status = keyStatuses[pk.id];
+            return (
+              <tr key={pk.id} className="hover:bg-white/50 transition-colors">
+                <td className="px-5 py-3.5 text-sm text-slate-700 dark:text-slate-700 font-bold">{pk.name}</td>
+                <td className="px-5 py-3.5 font-mono text-xs text-slate-500">sk_...{pk.key.substring(pk.key.length - 4)}</td>
+                <td className="px-5 py-3.5 text-xs">
+                  {status ? (
+                    <div className="flex items-center gap-1.5">
+                      {status.valid ? (
+                        <span className="flex items-center gap-1 text-emerald-600 font-bold" title={status.message}>
+                          <CheckCircle2 className="w-3.5 h-3.5" /> Valid
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-red-500 font-bold max-w-[180px] truncate" title={status.message}>
+                          <XCircle className="w-3.5 h-3.5 shrink-0" /> {status.message || 'Invalid Key'}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => handleTestInTable(pk.id, pk.key)}
+                      disabled={testingId === pk.id}
+                      className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
+                    >
+                      {testingId === pk.id ? (
+                        <>
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Testing...
+                        </>
+                      ) : (
+                        'Test Key'
+                      )}
+                    </button>
+                  )}
+                </td>
+                <td className="px-5 py-3.5">
+                  <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border ${pk.isActive ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/20' : 'bg-slate-200 text-slate-600 border-slate-300'}`}>
+                    {pk.isActive ? 'Active' : 'Inactive'}
+                  </span>
+                </td>
+                <td className="px-5 py-3.5 text-right">
+                  <div className="flex items-center justify-end gap-1">
+                    <button onClick={() => toggleActive(pk.id, pk.isActive)} className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-500/10 rounded-lg transition-colors" title="Toggle Active">
+                      {pk.isActive ? <ToggleRight className="w-4 h-4 text-emerald-600" /> : <ToggleLeft className="w-4 h-4" />}
+                    </button>
+                    <button onClick={() => handleDelete(pk.id)} className="p-1.5 text-slate-600 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors" title="Delete">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
         </AdminTable>
       </AdminCard>
 
@@ -150,9 +277,26 @@ export const AdminApiKeys: React.FC<AdminApiKeysProps> = ({ apiKeys, usage, fetc
       {showAdd && (
         <AdminModal title="Add Cartesia API Key" onClose={() => setShowAdd(false)}>
           <form onSubmit={handleAdd} className="space-y-4">
-            <AdminInput label="Label Name" type="text" required value={newKey.name} onChange={e => setNewKey({ ...newKey, name: e.target.value })} placeholder="Main Key" />
-            <AdminInput label="API Key" type="password" required value={newKey.key} onChange={e => setNewKey({ ...newKey, key: e.target.value })} placeholder="sk_car_..." />
+            <AdminInput label="Label Name" type="text" required value={newKey.name} onChange={e => setNewKey({ ...newKey, name: e.target.value })} placeholder="Production Key" />
+            <AdminInput label="API Key" type="password" required value={newKey.key} onChange={e => { setNewKey({ ...newKey, key: e.target.value }); setTestResult(null); }} placeholder="sk_car_..." />
+            
+            {testResult && (
+              <div className={`p-3 rounded-xl text-xs font-bold flex items-center gap-2 ${testResult.valid ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                {testResult.valid ? <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" /> : <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />}
+                <span>{testResult.message}</span>
+              </div>
+            )}
+
             <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={handleTestNewKey}
+                disabled={!newKey.key.trim() || isTestingNew}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {isTestingNew ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+                Test Connection
+              </button>
               <AdminButton variant="secondary" type="button" onClick={() => setShowAdd(false)} className="flex-1">Cancel</AdminButton>
               <AdminButton type="submit" className="flex-1">Save Key</AdminButton>
             </div>

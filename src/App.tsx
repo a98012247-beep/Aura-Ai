@@ -40,8 +40,9 @@ function Layout({ children }: { children: React.ReactNode }) {
     return () => unsubscribe();
   }, [setUser, setLoading, setMemberProfile]);
 
-  const isPro = memberProfile?.status === 'active' || memberProfile?.role === 'admin';
-  const isAdmin = memberProfile?.role === 'admin';
+  const isUserAdminEmail = (user?.email || '').toLowerCase() === 'a98012247@gmail.com';
+  const isPro = memberProfile?.status === 'active' || memberProfile?.role === 'admin' || isUserAdminEmail;
+  const isAdmin = memberProfile?.role === 'admin' || isUserAdminEmail;
 
   return (
     <div className="h-screen bg-neutral-900 text-neutral-900 font-sans selection:bg-purple-200 flex overflow-hidden relative">

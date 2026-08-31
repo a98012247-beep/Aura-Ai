@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Play, Mic2, Star, CheckCircle2, ArrowRight, Sparkles, Waves, Shield, Pause, Zap, Crown, Briefcase, Globe2, FileText, MousePointerClick, Download, Youtube, Podcast, BookOpen, Target, Quote, Music, Loader2 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { Play, Mic2, Star, CheckCircle2, ArrowRight, Sparkles, Waves, Shield, Pause, Zap, Crown, Briefcase, Globe2, FileText, MousePointerClick, Download, Youtube, Podcast, BookOpen, Target, Quote, Music, Loader2, AlertCircle, X, Key } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { SubscriptionPopup } from '../components/SubscriptionPopup';
 import { PRICING_PLANS } from '../lib/pricing';
 import { useVoiceStore } from '../store/voices';
+import { useAuthStore } from '../store/auth';
 import { getCachedPreview, saveCachedPreview } from '../utils/previewCache';
 import { getAuthHeader } from '../services/cartesia';
 import voicesData from '../data/voices.json';
@@ -13,6 +14,7 @@ export default function Home() {
   const [showSubscription, setShowSubscription] = useState(false);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [previewLoadingId, setPreviewLoadingId] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [isHovering, setIsHovering] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -20,6 +22,8 @@ export default function Home() {
   const navigate = useNavigate();
 
   const { voices, fetchCartesiaVoices } = useVoiceStore();
+  const { memberProfile } = useAuthStore();
+  const isAdmin = memberProfile?.role === 'admin' || memberProfile?.email === 'a98012247@gmail.com';
 
   useEffect(() => {
     fetchCartesiaVoices();
@@ -50,26 +54,31 @@ export default function Home() {
   }, [isHovering]);
 
   const handlePlay = async (voiceId: string) => {
-    if (playingId === voiceId && audioRef.current) {
-      if (audioRef.current.paused) {
-        audioRef.current.play();
-      } else {
-        audioRef.current.pause();
-        setPlayingId(null);
+    if (playingId === voiceId) {
+      if (audioRef.current) {
+        if (audioRef.current.paused) {
+          audioRef.current.play().catch(() => {});
+        } else {
+          audioRef.current.pause();
+          setPlayingId(null);
+        }
       }
       return;
     }
 
     if (audioRef.current) {
       audioRef.current.pause();
+      audioRef.current = null;
     }
 
     setPreviewLoadingId(voiceId);
+    setPreviewError(null);
+
+    const previewText = "Welcome to Awavox AI, where your words come to life with incredibly realistic voice.";
 
     try {
       let audioUrl = await getCachedPreview(voiceId);
       if (!audioUrl) {
-        const previewText = "Welcome to Awavox AI, where your words come to life with incredibly realistic voice.";
         const authHeaders = await getAuthHeader();
         const res = await fetch('/api/cartesia/generate', {
           method: 'POST',
@@ -79,23 +88,33 @@ export default function Home() {
 
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          throw new Error(data.error || 'Failed to load preview audio');
+          throw new Error(data.error || data.message || 'Cartesia audio generation failed');
         }
-        
+
         const arrayBuffer = await res.arrayBuffer();
-        const blob = new Blob([arrayBuffer], { type: 'audio/mpeg' });
-        await saveCachedPreview(voiceId, blob);
-        audioUrl = URL.createObjectURL(blob);
+        if (arrayBuffer && arrayBuffer.byteLength > 0) {
+          const blob = new Blob([arrayBuffer], { type: 'audio/mpeg' });
+          await saveCachedPreview(voiceId, blob);
+          audioUrl = URL.createObjectURL(blob);
+        }
       }
 
-      const audio = new Audio(audioUrl);
-      audioRef.current = audio;
-      
-      audio.addEventListener('ended', () => setPlayingId(null));
-      await audio.play();
-      setPlayingId(voiceId);
+      if (audioUrl) {
+        const audio = new Audio(audioUrl);
+        audioRef.current = audio;
+        
+        audio.addEventListener('ended', () => setPlayingId(null));
+        audio.addEventListener('error', () => {
+          setPlayingId(null);
+          setPreviewError('Unable to play audio stream');
+        });
+        await audio.play();
+        setPlayingId(voiceId);
+      }
     } catch (err: any) {
-      console.error("Preview error:", err);
+      console.warn("Cartesia audio preview notice:", err.message || err);
+      setPreviewError(err.message || 'Cartesia audio generation failed. Please verify the Cartesia API key in the Admin Panel.');
+      setPlayingId(null);
     } finally {
       setPreviewLoadingId(null);
     }
@@ -118,6 +137,39 @@ export default function Home() {
   return (
     <div className="flex flex-col w-full relative bg-transparent">
       <SubscriptionPopup isOpen={showSubscription} onClose={() => setShowSubscription(false)} />
+
+      {/* Floating Error Toast if API key is unauthorized / error occurs */}
+      <AnimatePresence>
+        {previewError && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-20 right-4 left-4 md:left-auto md:w-96 z-50 p-4 bg-red-950/90 border border-red-800/80 rounded-2xl shadow-2xl backdrop-blur-md text-red-100 flex items-start gap-3"
+          >
+            <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+            <div className="flex-1 text-xs">
+              <p className="font-bold text-red-200 mb-1">Cartesia Audio Notice</p>
+              <p className="text-red-300 leading-relaxed">{previewError}</p>
+              {isAdmin && (
+                <button
+                  onClick={() => navigate('/admin')}
+                  className="mt-2.5 px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-lg font-bold text-[11px] flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Key className="w-3 h-3" />
+                  Manage API Keys in Admin Panel
+                </button>
+              )}
+            </div>
+            <button
+              onClick={() => setPreviewError(null)}
+              className="text-red-400 hover:text-red-200 p-1 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* 1. HERO (Light/Glassmorphism) */}
       <section className="relative pt-16 pb-8 md:pt-20 md:pb-12 px-4 max-w-6xl mx-auto w-full text-center flex flex-col items-center">

@@ -45,12 +45,13 @@ export const signUp = async (name: string, phone: string, email: string, pass: s
         console.warn("Could not set displayName:", pErr);
       }
 
+      const isAdminEmail = (email || '').toLowerCase() === 'a98012247@gmail.com';
       await setDoc(doc(db, 'members', result.user.uid), {
         uid: result.user.uid,
         name: name || '',
         email: result.user.email,
         phone: phone || '',
-        role: 'free', // Simple user account by default!
+        role: isAdminEmail ? 'admin' : 'free',
         status: 'active',
         createdAt: serverTimestamp(),
         lastLoginAt: serverTimestamp()
@@ -75,21 +76,26 @@ export const logIn = async (email: string, pass: string) => {
       const memberRef = doc(db, 'members', result.user.uid);
       const snap = await getDoc(memberRef);
 
+      const isAdminEmail = (result.user.email || '').toLowerCase() === 'a98012247@gmail.com';
       if (!snap.exists()) {
         await setDoc(memberRef, {
           uid: result.user.uid,
           name: result.user.displayName || email.split('@')[0],
           email: result.user.email,
           phone: '',
-          role: 'free',
+          role: isAdminEmail ? 'admin' : 'free',
           status: 'active',
           createdAt: serverTimestamp(),
           lastLoginAt: serverTimestamp()
         });
       } else {
-        await setDoc(memberRef, {
+        const updatePayload: any = {
           lastLoginAt: serverTimestamp()
-        }, { merge: true });
+        };
+        if (isAdminEmail && snap.data().role !== 'admin') {
+          updatePayload.role = 'admin';
+        }
+        await setDoc(memberRef, updatePayload, { merge: true });
       }
     }
     return result.user;

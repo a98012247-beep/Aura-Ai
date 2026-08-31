@@ -38,6 +38,7 @@ import {
 } from 'firebase/firestore';
 import { cn } from '../lib/utils';
 import { motion } from 'motion/react';
+import { getAuthHeader } from '../services/cartesia';
 
 import { useParams, useNavigate } from 'react-router';
 import { useAuthStore } from '../store/auth';
@@ -166,53 +167,125 @@ export const AdminPage: React.FC = () => {
 
   const fetchData = async () => {
     setLoading(true);
-    console.log("Fetching data for tab:", activeTab);
     try {
+      // Safe fetch helper that tries ordered query first, then plain collection as fallback
+      const safeFetchDocs = async (collName: string, orderField?: string, orderDir: 'asc' | 'desc' = 'desc', limitCount?: number) => {
+        try {
+          if (orderField) {
+            const q = limitCount 
+              ? query(collection(db, collName), orderBy(orderField, orderDir), limit(limitCount))
+              : query(collection(db, collName), orderBy(orderField, orderDir));
+            const snap = await getDocs(q);
+            return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          }
+        } catch (orderedErr) {
+          console.warn(`Ordered query for ${collName} failed, falling back to basic collection query:`, orderedErr);
+        }
+        try {
+          const snap = await getDocs(collection(db, collName));
+          const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          if (orderField) {
+            list.sort((a: any, b: any) => {
+              const aVal = a[orderField]?.seconds ? a[orderField].seconds : (a[orderField] || 0);
+              const bVal = b[orderField]?.seconds ? b[orderField].seconds : (b[orderField] || 0);
+              return orderDir === 'desc' ? (bVal > aVal ? 1 : -1) : (aVal > bVal ? 1 : -1);
+            });
+          }
+          return limitCount ? list.slice(0, limitCount) : list;
+        } catch (basicErr) {
+          console.warn(`Basic query for ${collName} notice:`, basicErr);
+          return [];
+        }
+      };
+
       if (activeTab === 'dashboard' || activeTab === 'members' || activeTab === 'settings') {
-        const mSnap = await getDocs(query(collection(db, 'members'), orderBy('createdAt', 'desc')));
-        setMembers(mSnap.docs.map(d => ({ id: d.id, ...d.data() } as Member)));
+        const mDocs = await safeFetchDocs('members', 'createdAt', 'desc');
+        setMembers(mDocs as Member[]);
       }
-      if (activeTab === 'dashboard' || activeTab === 'generations') {
-        const uSnap = await getDocs(query(collection(db, 'usage'), orderBy('timestamp', 'desc'), limit(100)));
-        setUsage(uSnap.docs.map(d => ({ id: d.id, ...d.data() } as UsageRecord)));
+      if (activeTab === 'dashboard' || activeTab === 'generations' || activeTab === 'api-keys') {
+        const uDocs = await safeFetchDocs('usage', 'timestamp', 'desc', 100);
+        setUsage(uDocs as UsageRecord[]);
       }
       if (activeTab === 'dashboard' || activeTab === 'earnings') {
-        const eSnap = await getDocs(query(collection(db, 'earnings'), orderBy('timestamp', 'desc')));
-        setEarnings(eSnap.docs.map(d => ({ id: d.id, ...d.data() } as EarningRecord)));
+        const eDocs = await safeFetchDocs('earnings', 'timestamp', 'desc');
+        setEarnings(eDocs as EarningRecord[]);
       }
       if (activeTab === 'api-keys') {
-        const kSnap = await getDocs(query(collection(db, 'platform_api_keys'), orderBy('createdAt', 'desc')));
-        setApiKeys(kSnap.docs.map(d => ({ id: d.id, ...d.data() } as PlatformApiKey)));
+        let serverKeys: PlatformApiKey[] = [];
+        try {
+          const headers = await getAuthHeader();
+          const sRes = await fetch('/api/admin/api-keys', { headers });
+          if (sRes.ok) {
+            const sData = await sRes.json();
+            if (Array.isArray(sData.keys)) {
+              serverKeys = sData.keys;
+            }
+          }
+        } catch (sErr) {
+          console.warn("Backend API keys fetch notice:", sErr);
+        }
+
+        const firestoreKeys = (await safeFetchDocs('platform_api_keys', 'createdAt', 'desc')) as PlatformApiKey[];
+
+        // Auto-sync Firestore keys to server if server is missing them
+        if (firestoreKeys.length > 0) {
+          const missingOnServer = firestoreKeys.filter(fk => !serverKeys.some(sk => sk.key === fk.key || sk.id === fk.id));
+          if (missingOnServer.length > 0) {
+            try {
+              const headers = await getAuthHeader();
+              await fetch('/api/admin/api-keys/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...headers },
+                body: JSON.stringify({ keys: missingOnServer })
+              });
+            } catch (syncErr) {
+              console.warn("Auto-sync keys to server notice:", syncErr);
+            }
+          }
+        }
+
+        // Merge both sources (dedup by key / id)
+        const combined = [...serverKeys];
+        for (const fk of firestoreKeys) {
+          if (!combined.some(c => c.key === fk.key || c.id === fk.id)) {
+            combined.push(fk);
+          }
+        }
+
+        setApiKeys(combined);
       }
       if (activeTab === 'settings') {
-        const sSnap = await getDocs(collection(db, 'global_settings'));
-        if (!sSnap.empty) {
-          setSettings({ id: sSnap.docs[0].id, ...sSnap.docs[0].data() } as GlobalSettings);
-        } else {
-          setSettings({
-            maintenanceMode: false,
-            defaultModel: 'cartesia',
-            freeCharacterLimit: 5000,
-            proCharacterLimit: 50000,
-            signupEnabled: true
-          });
+        try {
+          const sSnap = await getDocs(collection(db, 'global_settings'));
+          if (!sSnap.empty) {
+            setSettings({ id: sSnap.docs[0].id, ...sSnap.docs[0].data() } as GlobalSettings);
+          } else {
+            setSettings({
+              maintenanceMode: false,
+              defaultModel: 'cartesia',
+              freeCharacterLimit: 5000,
+              proCharacterLimit: 50000,
+              signupEnabled: true
+            });
+          }
+        } catch (sErr) {
+          console.warn("Global settings fetch notice:", sErr);
         }
       }
       if (activeTab === 'moderation') {
-        const vcSnap = await getDocs(query(collection(db, 'voice_clones'), orderBy('createdAt', 'desc')));
-        setVoiceClones(vcSnap.docs.map(d => ({ id: d.id, ...d.data() } as VoiceClone)));
+        const vcDocs = await safeFetchDocs('voice_clones', 'createdAt', 'desc');
+        setVoiceClones(vcDocs as VoiceClone[]);
       }
       if (activeTab === 'feedback') {
-        const fbSnap = await getDocs(query(collection(db, 'feedback'), orderBy('createdAt', 'desc')));
-        setFeedback(fbSnap.docs.map(d => ({ id: d.id, ...d.data() } as FeedbackReport)));
+        const fbDocs = await safeFetchDocs('feedback', 'createdAt', 'desc');
+        setFeedback(fbDocs as FeedbackReport[]);
       }
       if (activeTab === 'security' || activeTab === 'dashboard') {
-        const secSnap = await getDocs(query(collection(db, 'security_flags'), orderBy('createdAt', 'desc')));
-        setSecurityFlags(secSnap.docs.map(d => ({ id: d.id, ...d.data() } as SecurityFlag)));
+        const secDocs = await safeFetchDocs('security_flags', 'createdAt', 'desc');
+        setSecurityFlags(secDocs as SecurityFlag[]);
       }
     } catch (error) {
-      console.error("Error fetching admin data:", error);
-      alert("Error fetching admin data: " + (error as Error).message);
+      console.warn("Error fetching admin data:", error);
     } finally {
       setLoading(false);
     }

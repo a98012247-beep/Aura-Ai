@@ -61,3 +61,18 @@ export async function saveCachedPreview(voiceId: string, audioBlob: Blob): Promi
     console.warn("IndexedDB write error:", err);
   }
 }
+
+export async function clearCachedPreview(voiceId: string): Promise<void> {
+  try {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.delete(voiceId);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  } catch (err) {
+    console.warn("IndexedDB delete error:", err);
+  }
+}

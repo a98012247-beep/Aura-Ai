@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { MASTER_CARTESIA_VOICES } from '../data/cartesiaVoices';
 import { getAuthHeader } from '../services/cartesia';
 import { useVoiceStore } from '../store/voices';
-import { getCachedPreview, saveCachedPreview } from '../utils/previewCache';
+import { getCachedPreview, saveCachedPreview, clearCachedPreview } from '../utils/previewCache';
 
 interface Voice {
   id: string;
@@ -88,55 +88,72 @@ export default function VoiceLibraryPage() {
     return { langs, genders, countries, ages, accents };
   }, [voices]);
 
-  const handlePreview = async (voiceId: string) => {
-    if (playingVoiceId === voiceId && audioRef.current) {
-      if (audioRef.current.paused) {
-        audioRef.current.play();
-      } else {
-        audioRef.current.pause();
-        setPlayingVoiceId(null);
+  const handlePreview = async (voice: Voice) => {
+    const voiceId = voice.id;
+    if (playingVoiceId === voiceId) {
+      if (audioRef.current) {
+        if (audioRef.current.paused) {
+          audioRef.current.play().catch(() => {});
+        } else {
+          audioRef.current.pause();
+          setPlayingVoiceId(null);
+        }
       }
       return;
     }
 
     if (audioRef.current) {
       audioRef.current.pause();
+      audioRef.current = null;
     }
 
     setPreviewLoadingId(voiceId);
     setError(null);
 
+    const previewText = "Welcome to Awavox AI, where your words come to life with incredibly realistic voice.";
+
     try {
       let audioUrl = await getCachedPreview(voiceId);
       if (!audioUrl) {
-        const previewText = "Welcome to Awavox AI, where your words come to life with incredibly realistic voice.";
         const authHeaders = await getAuthHeader();
         const res = await fetch('/api/cartesia/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...authHeaders },
-          body: JSON.stringify({ text: previewText, voiceId, type: 'preview' })
+          body: JSON.stringify({ text: previewText, voiceId, type: 'preview', language: voice.language })
         });
 
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          throw new Error(data.error || 'Failed to load preview audio');
+          throw new Error(data.error || data.message || 'Cartesia voice preview generation failed');
         }
 
         const arrayBuffer = await res.arrayBuffer();
-        const blob = new Blob([arrayBuffer], { type: 'audio/mpeg' });
-        await saveCachedPreview(voiceId, blob);
-        audioUrl = URL.createObjectURL(blob);
+        if (arrayBuffer && arrayBuffer.byteLength > 0) {
+          const blob = new Blob([arrayBuffer], { type: 'audio/mpeg' });
+          await saveCachedPreview(voiceId, blob);
+          audioUrl = URL.createObjectURL(blob);
+        }
       }
 
-      const audio = new Audio(audioUrl);
-      audioRef.current = audio;
-      
-      audio.addEventListener('ended', () => setPlayingVoiceId(null));
-      await audio.play();
-      setPlayingVoiceId(voiceId);
+      if (audioUrl) {
+        const audio = new Audio();
+        audioRef.current = audio;
+
+        audio.addEventListener('ended', () => setPlayingVoiceId(null));
+        audio.addEventListener('error', () => {
+          setPlayingVoiceId(null);
+          setError('Failed to play audio stream');
+          clearCachedPreview(voiceId);
+        });
+
+        audio.src = audioUrl;
+        await audio.play();
+        setPlayingVoiceId(voiceId);
+      }
     } catch (err: any) {
-      console.error("Preview error:", err);
-      setError(err.message || 'Failed to play voice preview');
+      console.warn("Cartesia preview notice:", err.message || err);
+      setError(err.message || 'Failed to play voice preview. Please check Admin API key configuration.');
+      setPlayingVoiceId(null);
     } finally {
       setPreviewLoadingId(null);
     }
@@ -393,7 +410,7 @@ export default function VoiceLibraryPage() {
 
                 {viewMode === 'list' && (
                   <button
-                    onClick={() => handlePreview(voice.id)}
+                    onClick={() => handlePreview(voice)}
                     className={`w-12 h-12 rounded-full flex items-center justify-center transition-all shrink-0 border ${isPlaying ? 'bg-gradient-to-b from-purple-500 to-purple-700 text-white border-purple-600 shadow-[0_8px_16px_rgba(168,85,247,0.3),inset_0_2px_4px_rgba(255,255,255,0.4)]' : 'bg-gradient-to-b from-neutral-50 to-neutral-100 text-neutral-900 border-neutral-200 shadow-[0_4px_12px_rgba(0,0,0,0.05),inset_0_2px_4px_rgba(255,255,255,1)] hover:-translate-y-1 hover:shadow-[0_8px_16px_rgba(0,0,0,0.1),inset_0_2px_4px_rgba(255,255,255,1)] active:translate-y-0 active:shadow-inner'}`}
                   >
                     {isLoading ? <Loader2 className="w-4 h-4 animate-spin drop-shadow-sm" /> : isPlaying ? <Pause className="w-4 h-4 fill-current drop-shadow-md" /> : <Play className="w-4 h-4 ml-1 fill-current drop-shadow-md" />}
@@ -451,7 +468,7 @@ export default function VoiceLibraryPage() {
                         Select
                       </button>
                       <button
-                        onClick={() => handlePreview(voice.id)}
+                        onClick={() => handlePreview(voice)}
                         className={`w-8 h-8 rounded-full flex items-center justify-center transition-all border ${isPlaying ? 'bg-gradient-to-b from-purple-500 to-purple-700 text-white border-purple-600 shadow-[0_4px_12px_rgba(168,85,247,0.3),inset_0_2px_4px_rgba(255,255,255,0.4)]' : 'bg-gradient-to-b from-neutral-50 to-neutral-100 text-neutral-900 border-neutral-200 shadow-[0_2px_8px_rgba(0,0,0,0.05),inset_0_2px_4px_rgba(255,255,255,1)] hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgba(0,0,0,0.1),inset_0_2px_4px_rgba(255,255,255,1)] active:translate-y-0 active:shadow-inner'}`}
                       >
                         {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin drop-shadow-sm" /> : isPlaying ? <Pause className="w-3.5 h-3.5 fill-current drop-shadow-md" /> : <Play className="w-3.5 h-3.5 ml-0.5 fill-current drop-shadow-md" />}

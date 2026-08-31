@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { useGenerationStore } from '../store/generation';
-import { Play, Download, Loader2, Disc3, RotateCcw, Mic, Sparkles, Heart, List, LayoutGrid, X } from 'lucide-react';
+import { Play, Download, Loader2, Disc3, RotateCcw, Mic, Sparkles, Heart, List, LayoutGrid, X, Key } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useSettingsStore, PRESET_PROFILES } from '../store/settings';
 import { useProjectsStore } from '../store/projects';
@@ -11,6 +12,7 @@ import { motion } from 'motion/react';
 import { MASTER_CARTESIA_VOICES } from '../data/cartesiaVoices';
 
 export default function StudioPage() {
+  const navigate = useNavigate();
   const { draftScript, updateDraftScript } = useProjectsStore();
   const text = draftScript;
   const setText = updateDraftScript;
@@ -166,9 +168,22 @@ export default function StudioPage() {
         {/* Status / Output Area */}
         <div className="shrink-0 p-4 md:p-8 pt-0 z-20">
            {error && (
-              <div className="bg-red-50/90 backdrop-blur-md border border-red-200/80 text-red-700 font-bold px-6 py-4 rounded-2xl text-sm shadow-[0_4px_12px_rgba(239,68,68,0.1),inset_0_2px_4px_rgba(255,255,255,0.5)] flex items-center gap-3">
-                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-                {error}
+              <div className="bg-red-50/90 backdrop-blur-md border border-red-200/80 text-red-700 font-bold px-6 py-4 rounded-2xl text-sm shadow-[0_4px_12px_rgba(239,68,68,0.1),inset_0_2px_4px_rgba(255,255,255,0.5)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0"></span>
+                  <span>{error}</span>
+                </div>
+                {(error.toLowerCase().includes('api key') || error.toLowerCase().includes('unauthorized') || error.toLowerCase().includes('credentials') || error.toLowerCase().includes('401')) && (
+                  memberProfile?.role === 'admin' ? (
+                    <button
+                      onClick={() => navigate('/admin')}
+                      className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-black transition-all flex items-center gap-1.5 shrink-0 shadow-sm"
+                    >
+                      <Key className="w-3 h-3" />
+                      Manage Keys in Admin Panel
+                    </button>
+                  ) : null
+                )}
               </div>
            )}
 
