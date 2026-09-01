@@ -52,9 +52,9 @@ interface StoredApiKey {
   lastTestedMessage?: string;
 }
 
-const KEYS_FILE_PATH = path.join(process.cwd(), 'src/data/platform_api_keys.json');
+const KEYS_FILE_PATH = "";
 
-function loadStoredKeys(): StoredApiKey[] {
+function loadStoredKeys(): StoredApiKey[] { return [];
   try {
     if (fs.existsSync(KEYS_FILE_PATH)) {
       const data = fs.readFileSync(KEYS_FILE_PATH, 'utf-8');
@@ -67,7 +67,7 @@ function loadStoredKeys(): StoredApiKey[] {
   return [];
 }
 
-function saveStoredKeys(keys: StoredApiKey[]): void {
+function saveStoredKeys(keys: StoredApiKey[]): void { return;
   try {
     const dir = path.dirname(KEYS_FILE_PATH);
     if (!fs.existsSync(dir)) {
@@ -557,163 +557,6 @@ app.get("/api/health", (req, res) => {
     if (req.user?.email && req.user.email.toLowerCase() === adminEmail.toLowerCase()) return true;
     return false;
   };
-
-  app.get("/api/admin/api-keys", authMiddleware, (req: any, res: express.Response) => {
-    if (!checkIsAdmin(req)) {
-      return res.status(403).json({ error: 'Admin only' });
-    }
-    const keys = loadStoredKeys();
-    res.json({ success: true, keys });
-  });
-
-  app.post("/api/admin/api-keys", authMiddleware, async (req: any, res: express.Response) => {
-    if (!checkIsAdmin(req)) {
-      return res.status(403).json({ error: 'Admin only' });
-    }
-    const { key, name, isActive = true, id } = req.body;
-    if (!key || typeof key !== 'string' || !key.trim()) {
-      return res.status(400).json({ error: 'API key is required' });
-    }
-
-    const trimmedKey = key.trim();
-    const trimmedName = (name && typeof name === 'string' && name.trim()) ? name.trim() : 'Cartesia Key';
-    const keyId = id || ('key_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7));
-
-    // Test with Cartesia
-    let isValid = false;
-    let testMsg = '';
-    let voiceCount = 0;
-    try {
-      const cartesiaRes = await fetch("https://api.cartesia.ai/voices", {
-        headers: {
-          "X-API-Key": trimmedKey,
-          "Cartesia-Version": "2024-11-13"
-        }
-      });
-      if (cartesiaRes.ok) {
-        isValid = true;
-        const data = await cartesiaRes.json();
-        const voiceList = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : (Array.isArray(data?.voices) ? data.voices : []));
-        voiceCount = voiceList.length;
-        testMsg = `Active (${voiceCount} voices available)`;
-      } else {
-        const errText = await cartesiaRes.text();
-        try {
-          const j = JSON.parse(errText);
-          testMsg = j.message || j.error || `Cartesia returned ${cartesiaRes.status}`;
-        } catch {
-          testMsg = `Cartesia returned status ${cartesiaRes.status}`;
-        }
-      }
-    } catch (err: any) {
-      testMsg = err.message || 'Connection test failed';
-    }
-
-    const existingKeys = loadStoredKeys();
-    const existingIdx = existingKeys.findIndex(k => k.id === keyId || k.key === trimmedKey);
-    const record: StoredApiKey = {
-      id: keyId,
-      name: trimmedName,
-      key: trimmedKey,
-      isActive: Boolean(isActive),
-      usageCount: existingIdx >= 0 ? (existingKeys[existingIdx].usageCount || 0) : 0,
-      totalCharactersUsed: existingIdx >= 0 ? (existingKeys[existingIdx].totalCharactersUsed || 0) : 0,
-      createdAt: existingIdx >= 0 ? (existingKeys[existingIdx].createdAt || new Date().toISOString()) : new Date().toISOString(),
-      lastTestedStatus: isValid ? 'valid' : 'invalid',
-      lastTestedMessage: testMsg
-    };
-
-    if (existingIdx >= 0) {
-      existingKeys[existingIdx] = record;
-    } else {
-      existingKeys.unshift(record);
-    }
-
-    saveStoredKeys(existingKeys);
-
-    res.json({
-      success: true,
-      key: record,
-      valid: isValid,
-      message: testMsg,
-      voiceCount
-    });
-  });
-
-  app.post("/api/admin/api-keys/sync", authMiddleware, (req: any, res: express.Response) => {
-    if (!checkIsAdmin(req)) {
-      return res.status(403).json({ error: 'Admin only' });
-    }
-    const { keys } = req.body;
-    if (!Array.isArray(keys)) {
-      return res.status(400).json({ error: 'Keys array required' });
-    }
-
-    const current = loadStoredKeys();
-    let addedCount = 0;
-    for (const k of keys) {
-      if (!k || !k.key || typeof k.key !== 'string') continue;
-      const rawKey = k.key.trim();
-      if (!rawKey) continue;
-      const existing = current.find(c => c.id === k.id || c.key === rawKey);
-      if (!existing) {
-        current.push({
-          id: k.id || ('key_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7)),
-          name: (k.name && typeof k.name === 'string') ? k.name.trim() : 'Admin Key',
-          key: rawKey,
-          isActive: k.isActive !== false,
-          usageCount: k.usageCount || 0,
-          totalCharactersUsed: k.totalCharactersUsed || 0,
-          createdAt: k.createdAt || new Date().toISOString(),
-          lastTestedStatus: 'untested'
-        });
-        addedCount++;
-      }
-    }
-
-    if (addedCount > 0) {
-      saveStoredKeys(current);
-    }
-
-    res.json({ success: true, count: current.length, added: addedCount, keys: current });
-  });
-
-  app.patch("/api/admin/api-keys/:id", authMiddleware, (req: any, res: express.Response) => {
-    if (!checkIsAdmin(req)) {
-      return res.status(403).json({ error: 'Admin only' });
-    }
-    const { id } = req.params;
-    const { isActive, name } = req.body;
-    const current = loadStoredKeys();
-    const idx = current.findIndex(k => k.id === id);
-    if (idx === -1) {
-      return res.status(404).json({ error: 'Key not found' });
-    }
-
-    if (typeof isActive === 'boolean') {
-      current[idx].isActive = isActive;
-    }
-    if (typeof name === 'string' && name.trim()) {
-      current[idx].name = name.trim();
-    }
-
-    saveStoredKeys(current);
-    res.json({ success: true, key: current[idx] });
-  });
-
-  app.delete("/api/admin/api-keys/:id", authMiddleware, (req: any, res: express.Response) => {
-    if (!checkIsAdmin(req)) {
-      return res.status(403).json({ error: 'Admin only' });
-    }
-    const { id } = req.params;
-    const current = loadStoredKeys();
-    const filtered = current.filter(k => k.id !== id);
-    saveStoredKeys(filtered);
-    res.json({ success: true });
-  });
-
-  // ─── Admin: Validate API Key ──────────────────────────────────────────────
-
   app.post("/api/admin/validate-key", authMiddleware, async (req: any, res: express.Response) => {
     if (!checkIsAdmin(req)) {
       return res.status(403).json({ error: 'Admin only' });

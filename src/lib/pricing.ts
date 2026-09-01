@@ -53,6 +53,10 @@ export const PRICING_PLANS: Plan[] = [
   }
 ];
 
+import { useGlobalStore } from '../store/global';
+
 export const getPlanDetails = (planId: string) => {
-  return PRICING_PLANS.find(p => p.id === planId) || PRICING_PLANS[0];
+  const plans = useGlobalStore.getState().pricingPlans;
+  return plans.find(p => p.id === planId) || plans[0];
+
 };

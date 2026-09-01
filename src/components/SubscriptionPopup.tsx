@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Check, MessageCircle, Crown, Star, Zap, Briefcase } from 'lucide-react';
-import { PRICING_PLANS } from '../lib/pricing';
+import { useGlobalStore } from '../store/global';
 import { Link } from 'react-router';
 
 interface SubscriptionPopupProps {
@@ -69,7 +69,7 @@ export const SubscriptionPopup: React.FC<SubscriptionPopupProps> = ({ isOpen, on
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full">
-                {PRICING_PLANS.map((plan) => {
+                {pricingPlans.map((plan) => {
                   const { icon, bg } = getPlanIcon(plan.id);
                   return (
                     <div 

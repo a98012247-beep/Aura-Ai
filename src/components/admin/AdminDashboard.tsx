@@ -156,7 +156,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ members, usage, 
             System Operational
           </div>
           <button 
-            onClick={seedDummyData}
+
             disabled={isSeeding}
             className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl shadow-md font-bold text-sm hover:bg-slate-800 transition-colors"
           >

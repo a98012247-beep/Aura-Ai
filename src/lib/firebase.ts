@@ -35,7 +35,10 @@ if (typeof window !== "undefined") {
   window.db = db;
 }
 
+import { useGlobalStore } from '../store/global';
+
 export const signUp = async (name: string, phone: string, email: string, pass: string) => {
+  if (!useGlobalStore.getState().globalSettings.signupEnabled) throw new Error("New signups are currently disabled.");
   try {
     const result = await createUserWithEmailAndPassword(auth, email, pass);
     if (result.user) {

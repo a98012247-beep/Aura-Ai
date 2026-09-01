@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router';
 import { Play, Mic2, Star, CheckCircle2, ArrowRight, Sparkles, Waves, Shield, Pause, Zap, Crown, Briefcase, Globe2, FileText, MousePointerClick, Download, Youtube, Podcast, BookOpen, Target, Quote, Music, Loader2, AlertCircle, X, Key } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { SubscriptionPopup } from '../components/SubscriptionPopup';
-import { PRICING_PLANS } from '../lib/pricing';
+import { useGlobalStore } from '../store/global';
 import { useVoiceStore } from '../store/voices';
 import { useAuthStore } from '../store/auth';
 import { getCachedPreview, saveCachedPreview } from '../utils/previewCache';
@@ -11,6 +11,7 @@ import { getAuthHeader } from '../services/cartesia';
 import voicesData from '../data/voices.json';
 
 export default function Home() {
+  const { pricingPlans, siteContent, globalSettings } = useGlobalStore();
   const [showSubscription, setShowSubscription] = useState(false);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [previewLoadingId, setPreviewLoadingId] = useState<string | null>(null);
@@ -251,7 +252,7 @@ export default function Home() {
           transition={{ duration: 0.5, delay: 0.1 }}
           className="text-5xl md:text-7xl lg:text-8xl font-black tracking-tight text-neutral-900 leading-[1.05] max-w-6xl drop-shadow-md"
         >
-          The AI Voice That <br className="hidden md:block" /> <span className="font-serif italic font-normal text-transparent bg-clip-text bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 drop-shadow-[0_2px_12px_rgba(168,85,247,0.3)]">Sounds Real.</span>
+          {siteContent.heroHeading || globalSettings.heroHeadline || <>The AI Voice That <br className="hidden md:block" /> <span className="font-serif italic font-normal text-transparent bg-clip-text bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 drop-shadow-[0_2px_12px_rgba(168,85,247,0.3)]">Sounds Real.</span></>}
         </motion.h1>
 
         <motion.p
@@ -260,7 +261,7 @@ export default function Home() {
           transition={{ duration: 0.5, delay: 0.2 }}
           className="mt-4 text-sm md:text-base text-neutral-600 font-medium max-w-2xl leading-relaxed"
         >
-          Create ultra-realistic AI voices for documentaries, podcasts, and videos. Clone voices instantly or generate long-form voiceovers from a single script.
+          {siteContent.heroSubtext || globalSettings.heroSubtext || "Create ultra-realistic AI voices for documentaries, podcasts, and videos. Clone voices instantly or generate long-form voiceovers from a single script."}
         </motion.p>
 
         <motion.div
@@ -273,7 +274,7 @@ export default function Home() {
             onClick={() => navigate('/studio')}
             className="w-full sm:w-auto px-6 py-3 bg-gradient-to-b from-neutral-800 to-neutral-900 hover:from-neutral-700 hover:to-neutral-900 text-white rounded-full text-sm font-bold shadow-[0_8px_20px_rgba(0,0,0,0.3),inset_0_2px_4px_rgba(255,255,255,0.2)] hover:shadow-[0_12px_24px_rgba(0,0,0,0.4),inset_0_2px_4px_rgba(255,255,255,0.3)] hover:-translate-y-1 active:translate-y-1 active:shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_4px_8px_rgba(0,0,0,0.4)] transition-all flex items-center justify-center gap-2 border border-neutral-700"
           >
-            Get Started <ArrowRight className="w-4 h-4" />
+            {siteContent.ctaButtonText || globalSettings.heroCtaText || "Get Started"} <ArrowRight className="w-4 h-4" />
           </button>
           <button
             onClick={() => {
@@ -536,7 +537,7 @@ export default function Home() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 max-w-6xl mx-auto items-end">
-          {PRICING_PLANS.map((plan) => (
+          {pricingPlans.map((plan) => (
             <div
               key={plan.id}
               className={`bg-white/90 backdrop-blur-2xl border rounded-[2rem] p-5 flex flex-col relative transition-all duration-300 ${plan.recommended

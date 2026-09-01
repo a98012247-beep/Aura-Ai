@@ -13,6 +13,7 @@ import Privacy from './pages/Privacy';
 import VoiceLibraryPage from './pages/VoiceLibrary';
 import { AdminPage } from './pages/Admin';
 import { useSettingsStore } from './store/settings';
+import { useGlobalStore } from './store/global';
 import { useAuthStore } from './store/auth';
 import { onAuthStateChanged, auth, db } from './lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
@@ -249,6 +250,9 @@ function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  useEffect(() => {
+    useGlobalStore.getState().fetchGlobalData();
+  }, []);
   return (
     <BrowserRouter>
       <Layout>
