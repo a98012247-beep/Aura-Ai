@@ -352,7 +352,14 @@ export default function VoiceLibraryPage() {
         {error && (
           <div className="p-4 mb-8 bg-red-50/90 backdrop-blur-md border border-red-200/80 rounded-2xl text-red-700 font-bold flex items-start gap-3 shadow-[0_4px_12px_rgba(239,68,68,0.1),inset_0_2px_4px_rgba(255,255,255,0.5)]">
             <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-red-500" />
-            <p className="text-sm">{error}</p>
+            <div className="flex-1">
+              <p className="text-sm font-bold">
+                {error.toLowerCase().includes('cartesia') || error.toLowerCase().includes('api') ? 'An error occurred during generation.' : error}
+              </p>
+              <p className="text-xs mt-2">
+                Need help? <a href="https://wa.me/1234567890" target="_blank" rel="noopener noreferrer" className="underline font-bold hover:text-red-900">Contact support on WhatsApp</a>
+              </p>
+            </div>
           </div>
         )}
 

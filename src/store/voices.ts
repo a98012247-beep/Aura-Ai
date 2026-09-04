@@ -40,7 +40,7 @@ export const useVoiceStore = create<VoiceStore>((set) => ({
         set({ voices: MASTER_CARTESIA_VOICES, isLoading: false, error: null });
       }
     } catch (e: any) {
-      console.warn("Failed to fetch custom cartesia voices, using defaults:", e.message);
+      // console.warn("Failed to fetch custom cartesia voices, using defaults:", e.message); // Suppressed to keep console clean
       set({ voices: MASTER_CARTESIA_VOICES, isLoading: false, error: null });
     }
   }

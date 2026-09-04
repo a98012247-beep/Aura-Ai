@@ -3,6 +3,7 @@ import { Sliders, Play, Disc3, Loader2, UploadCloud, X, AlertCircle } from 'luci
 import { useSettingsStore, StorytellingMode, PRESET_PROFILES } from '../store/settings';
 import { generateAudioChunk } from '../services/cartesia';
 import { useAuthStore } from '../store/auth';
+import { useNavigate } from 'react-router';
 import { SubscriptionPopup } from '../components/SubscriptionPopup';
 import { motion } from 'motion/react';
 
@@ -27,12 +28,17 @@ export default function SettingsPage() {
   const [cloneError, setCloneError] = useState('');
   const [cloneSuccess, setCloneSuccess] = useState('');
 
-  const { memberProfile } = useAuthStore();
+  const { user, memberProfile } = useAuthStore();
+  const navigate = useNavigate();
   const [showSubscription, setShowSubscription] = useState(false);
   const isPro = memberProfile?.role === 'pro' || memberProfile?.role === 'admin';
 
   const handleCloneSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user || user.uid === 'guest') {
+      navigate('/account');
+      return;
+    }
     if (!cloneName || cloneFiles.length === 0) return;
     setIsCloning(true);
     setCloneError('');

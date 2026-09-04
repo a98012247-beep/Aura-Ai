@@ -6,6 +6,9 @@ import path from "path";
 import multer from "multer";
 import { onRequest } from "firebase-functions/v2/https";
 import { getApps, initializeApp, cert } from 'firebase-admin/app';
+import { initializeApp as initClientApp } from 'firebase/app';
+import { getFirestore as getClientFirestore, collection as clientColl, addDoc as clientAdd, doc as clientDoc, getDoc as clientGetDoc, getDocs as clientGetDocs, query as clientQuery, where as clientWhere } from 'firebase/firestore';
+
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { getStorage } from 'firebase-admin/storage';
@@ -13,6 +16,15 @@ import firebaseConfig from "./firebase-applet-config.json";
 
 let db: FirebaseFirestore.Firestore | null = null;
 let auth: any = null;
+
+let clientDb: any = null;
+try {
+  const clientApp = initClientApp(firebaseConfig);
+  clientDb = getClientFirestore(clientApp, (firebaseConfig as any).firestoreDatabaseId);
+} catch (e) {
+  console.warn("Client Firebase could not be initialized in server.", e);
+}
+
 
 try {
   // Initialize Firebase Admin
@@ -52,9 +64,9 @@ interface StoredApiKey {
   lastTestedMessage?: string;
 }
 
-const KEYS_FILE_PATH = "";
+const KEYS_FILE_PATH = '/tmp/platform_api_keys.json';
 
-function loadStoredKeys(): StoredApiKey[] { return [];
+function loadStoredKeys(): StoredApiKey[] {
   try {
     if (fs.existsSync(KEYS_FILE_PATH)) {
       const data = fs.readFileSync(KEYS_FILE_PATH, 'utf-8');
@@ -67,7 +79,7 @@ function loadStoredKeys(): StoredApiKey[] { return [];
   return [];
 }
 
-function saveStoredKeys(keys: StoredApiKey[]): void { return;
+function saveStoredKeys(keys: StoredApiKey[]): void {
   try {
     const dir = path.dirname(KEYS_FILE_PATH);
     if (!fs.existsSync(dir)) {
@@ -225,6 +237,7 @@ app.get("/api/health", (req, res) => {
 
     if (authHeader?.startsWith('Bearer ')) {
       const token = authHeader.split('Bearer ')[1];
+      req.tokenString = token;
       if (token && token.trim() !== '' && token !== 'null' && token !== 'undefined') {
         try {
           if (!auth) {
@@ -267,10 +280,141 @@ app.get("/api/health", (req, res) => {
 
   // Usage Tracker (frontend logs usage via Firestore client SDK)
   const usageMiddleware = async (req: any, res: any, next: any) => {
-    next();
+    if (req.body.type === 'preview') {
+      return next();
+    }
+    const user = req.user;
+    if (!user || user.uid === 'guest') {
+      return next(); 
+    }
+    try {
+      let isPro = false;
+      let isAdmin = false;
+      let limitAmount = 5000;
+      let usedChars = 0;
+      
+      if (req.tokenString) {
+        const headers = { Authorization: `Bearer ${req.tokenString}` };
+        const projectId = firebaseConfig.projectId;
+        const baseUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents`;
+        
+        try {
+          const mRes = await fetch(`${baseUrl}/members/${user.uid}`, { headers });
+          if (mRes.ok) {
+            const mData = await mRes.json();
+            const role = mData.fields?.role?.stringValue;
+            if (role === 'pro') isPro = true;
+            if (role === 'admin') isAdmin = true;
+          }
+          
+          let sLimitFree = 5000;
+          let sLimitPro = 50000;
+          const sRes = await fetch(`${baseUrl}/global_settings`, { headers });
+          if (sRes.ok) {
+            const sData = await sRes.json();
+            if (sData.documents && sData.documents.length > 0) {
+              const f = sData.documents[0].fields;
+              sLimitFree = parseInt(f.freeCharacterLimit?.integerValue || f.freeCharacterLimit?.doubleValue || sLimitFree);
+              sLimitPro = parseInt(f.proCharacterLimit?.integerValue || f.proCharacterLimit?.doubleValue || sLimitPro);
+            }
+          }
+          limitAmount = (isPro || isAdmin) ? sLimitPro : sLimitFree;
+
+          const startOfMonth = new Date();
+          startOfMonth.setDate(1);
+          startOfMonth.setHours(0, 0, 0, 0);
+
+          const qBody = {
+            structuredQuery: {
+              from: [{ collectionId: 'usage' }],
+              where: {
+                compositeFilter: {
+                  op: 'AND',
+                  filters: [
+                    {
+                      fieldFilter: {
+                        field: { fieldPath: 'email' },
+                        op: 'EQUAL',
+                        value: { stringValue: user.email }
+                      }
+                    },
+                    {
+                      fieldFilter: {
+                        field: { fieldPath: 'timestamp' },
+                        op: 'GREATER_THAN_OR_EQUAL',
+                        value: { timestampValue: startOfMonth.toISOString() }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          };
+
+          const qRes = await fetch(`${baseUrl}:runQuery`, { 
+            method: 'POST', 
+            headers, 
+            body: JSON.stringify(qBody) 
+          });
+          if (qRes.ok) {
+             const qData = await qRes.json();
+             qData.forEach((d: any) => {
+               if (d.document?.fields?.characters) {
+                 const c = d.document.fields.characters;
+                 usedChars += parseInt(c.integerValue || c.doubleValue || 0);
+               }
+             });
+          }
+          
+          const newChars = req.body.text?.length || 0;
+          if (usedChars + newChars > limitAmount && !isAdmin) {
+            return res.status(403).json({ error: "LIMIT_EXCEEDED", message: `Monthly character limit exceeded (${usedChars}/${limitAmount}).` });
+          }
+        } catch(e) {
+          console.error("Error checking limits REST API:", e);
+        }
+      }
+      next();
+    } catch(err) {
+      console.error(err);
+      next();
+    }
   };
 
   // ─── Admin Routes ──────────────────────────────────────────────────────────
+
+
+  app.post("/api/admin/sync-keys", authMiddleware, async (req: any, res: express.Response) => {
+    try {
+      const user = req.user;
+      if (!user) return res.status(401).json({ error: "Unauthorized" });
+      
+      // Verify admin role via REST
+      let isAdmin = false;
+      if (req.tokenString) {
+        const headers = { Authorization: `Bearer ${req.tokenString}` };
+        const projectId = firebaseConfig.projectId;
+        const baseUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents`;
+        const mRes = await fetch(`${baseUrl}/members/${user.uid}`, { headers });
+        if (mRes.ok) {
+          const mData = await mRes.json();
+          if (mData.fields?.role?.stringValue === 'admin') isAdmin = true;
+        }
+      }
+      
+      if (!isAdmin) return res.status(403).json({ error: "Forbidden" });
+      
+      const { keys } = req.body;
+      if (Array.isArray(keys)) {
+        saveStoredKeys(keys);
+        res.json({ success: true, count: keys.length });
+      } else {
+        res.status(400).json({ error: "Invalid keys format" });
+      }
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
 
   app.post("/api/admin/create-member", async (req: any, res) => {
     const { email, password } = req.body;
@@ -489,9 +633,9 @@ app.get("/api/health", (req, res) => {
       // Increment API key specific usage counters
       incrementApiKeyUsage(usedApiKeyId, text.length).catch(e => console.warn(e));
 
-      // Log usage asynchronously to Firestore
-      if (db) {
-        db.collection('usage').add({
+      // Log usage asynchronously to Firestore via Client SDK (avoids ADC IAM issues)
+      if (clientDb && requestType !== 'preview') {
+        clientAdd(clientColl(clientDb, 'usage'), {
           apiKeyId: usedApiKeyId,
           context,
           tool: 'tts',
@@ -499,7 +643,7 @@ app.get("/api/health", (req, res) => {
           email: user?.email || 'guest',
           characters: text.length,
           timestamp: new Date(),
-        }).catch(err => console.warn("Failed to log API usage:", err));
+        }).catch((err: any) => console.warn("Failed to log API usage via client SDK:", err));
       }
 
       res.setHeader("Content-Type", "audio/mpeg");

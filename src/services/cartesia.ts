@@ -8,7 +8,7 @@ export async function getAuthHeader(): Promise<Record<string, string>> {
       const anonRes = await signInAnonymously(auth);
       user = anonRes.user;
     } catch (e) {
-      console.warn("Could not auto sign-in anonymously:", e);
+      // console.warn("Could not auto sign-in anonymously:", e); // Suppressed since not all users enable anon auth
     }
   }
   const headers: Record<string, string> = {};
@@ -122,6 +122,17 @@ export async function fetchVoices(): Promise<any[]> {
     throw new Error(`Failed to fetch voices: ${response.status} - ${errText}`);
   }
 
-  const data = await response.json();
+    const text = await response.text();
+  if (text.trim().toLowerCase().startsWith('<!doctype html>')) {
+     throw new Error("Received HTML proxy response instead of JSON. Server is likely booting.");
+  }
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    console.error("Failed to parse JSON. Status:", response.status, "URL:", response.url);
+    console.error("Response preview:", text.substring(0, 200));
+    throw e;
+  }
   return data || [];
 }

@@ -10,8 +10,8 @@ interface SubscriptionPopupProps {
 }
 
 export const SubscriptionPopup: React.FC<SubscriptionPopupProps> = ({ isOpen, onClose }) => {
-  const { pricingPlans } = useGlobalStore();
-  const whatsappNumber = "+92324877900";
+  const { pricingPlans, siteContent } = useGlobalStore();
+  const whatsappNumber = siteContent?.whatsappNumber || "+92324877900";
 
   // Escape key handler
   useEffect(() => {

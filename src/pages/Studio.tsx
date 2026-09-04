@@ -16,7 +16,7 @@ export default function StudioPage() {
   const { draftScript, updateDraftScript } = useProjectsStore();
   const text = draftScript;
   const setText = updateDraftScript;
-  const { memberProfile } = useAuthStore();
+  const { user, memberProfile } = useAuthStore();
   const [showSubscription, setShowSubscription] = useState(false);
   const [isVoicePickerOpen, setIsVoicePickerOpen] = useState(false);
   const [visibleCount, setVisibleCount] = useState(24);
@@ -68,6 +68,10 @@ export default function StudioPage() {
   const charCount = text.length;
 
   const handleGenerate = () => {
+    if (!user || user.uid === 'guest') {
+      navigate('/account');
+      return;
+    }
     if (!isPro) {
       setShowSubscription(true);
       return;
@@ -168,22 +172,14 @@ export default function StudioPage() {
         {/* Status / Output Area */}
         <div className="shrink-0 p-4 md:p-8 pt-0 z-20">
            {error && (
-              <div className="bg-red-50/90 backdrop-blur-md border border-red-200/80 text-red-700 font-bold px-6 py-4 rounded-2xl text-sm shadow-[0_4px_12px_rgba(239,68,68,0.1),inset_0_2px_4px_rgba(255,255,255,0.5)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="bg-red-50/90 backdrop-blur-md border border-red-200/80 text-red-700 font-bold px-6 py-4 rounded-2xl text-sm shadow-[0_4px_12px_rgba(239,68,68,0.1),inset_0_2px_4px_rgba(255,255,255,0.5)] flex flex-col items-start gap-3">
                 <div className="flex items-center gap-3">
                   <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0"></span>
-                  <span>{error}</span>
+                  <span>{error.toLowerCase().includes('cartesia') || error.toLowerCase().includes('api') ? 'An error occurred during generation.' : error}</span>
                 </div>
-                {(error.toLowerCase().includes('api key') || error.toLowerCase().includes('unauthorized') || error.toLowerCase().includes('credentials') || error.toLowerCase().includes('401')) && (
-                  memberProfile?.role === 'admin' ? (
-                    <button
-                      onClick={() => navigate('/admin')}
-                      className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-black transition-all flex items-center gap-1.5 shrink-0 shadow-sm"
-                    >
-                      <Key className="w-3 h-3" />
-                      Manage Keys in Admin Panel
-                    </button>
-                  ) : null
-                )}
+                <div className="text-xs text-red-600 ml-5">
+                  Need help? <a href="https://wa.me/1234567890" target="_blank" rel="noopener noreferrer" className="underline font-bold hover:text-red-900">Contact support on WhatsApp</a>
+                </div>
               </div>
            )}
 

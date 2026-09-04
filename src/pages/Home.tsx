@@ -150,17 +150,12 @@ export default function Home() {
           >
             <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
             <div className="flex-1 text-xs">
-              <p className="font-bold text-red-200 mb-1">Cartesia Audio Notice</p>
-              <p className="text-red-300 leading-relaxed">{previewError}</p>
-              {isAdmin && (
-                <button
-                  onClick={() => navigate('/admin')}
-                  className="mt-2.5 px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-lg font-bold text-[11px] flex items-center gap-1.5 transition-colors cursor-pointer"
-                >
-                  <Key className="w-3 h-3" />
-                  Manage API Keys in Admin Panel
-                </button>
-              )}
+              <p className="font-bold text-red-200 mb-1">Notice</p>
+              <p className="text-red-300 leading-relaxed">
+                {previewError.toLowerCase().includes('cartesia') || previewError.toLowerCase().includes('api') ? 'An error occurred during generation.' : previewError}
+                <br /><br />
+                Need help? <a href="https://wa.me/1234567890" target="_blank" rel="noopener noreferrer" className="underline font-bold hover:text-white">Contact support on WhatsApp</a>
+              </p>
             </div>
             <button
               onClick={() => setPreviewError(null)}
@@ -252,7 +247,7 @@ export default function Home() {
           transition={{ duration: 0.5, delay: 0.1 }}
           className="text-5xl md:text-7xl lg:text-8xl font-black tracking-tight text-neutral-900 leading-[1.05] max-w-6xl drop-shadow-md"
         >
-          {siteContent.heroHeading || globalSettings.heroHeadline || <>The AI Voice That <br className="hidden md:block" /> <span className="font-serif italic font-normal text-transparent bg-clip-text bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 drop-shadow-[0_2px_12px_rgba(168,85,247,0.3)]">Sounds Real.</span></>}
+          {siteContent.heroHeading || globalSettings.heroHeadline || <>The AI Voice That <br className="hidden md:block" /> <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 drop-shadow-[0_2px_12px_rgba(168,85,247,0.3)]">Sounds Real.</span></>}
         </motion.h1>
 
         <motion.p
@@ -324,7 +319,7 @@ export default function Home() {
       {/* 3. POPULAR VOICES */}
       <section className="py-12 md:py-16 relative w-full overflow-hidden bg-gradient-to-b from-transparent to-white/30 backdrop-blur-sm border-t border-white/50">
         <div className="max-w-6xl mx-auto px-4 text-center mb-8">
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-neutral-900 drop-shadow-sm">Premium <span className="font-serif italic font-normal text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">Voices.</span></h2>
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-neutral-900 drop-shadow-sm">Premium <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">Voices.</span></h2>
           <p className="mt-2 text-neutral-600 font-medium text-xs md:text-sm max-w-2xl mx-auto">
             Listen to our most popular AI voices, engineered for realism and emotion.
           </p>
@@ -380,7 +375,7 @@ export default function Home() {
       <section className="py-12 md:py-16 px-4 max-w-6xl mx-auto w-full bg-transparent">
         <div className="text-center mb-10">
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-extrabold tracking-tight text-neutral-900 mb-3 drop-shadow-sm">
-            How It <span className="font-serif italic font-normal text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">Works.</span>
+            How It <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">Works.</span>
           </h2>
           <p className="mt-2 text-neutral-600 font-medium text-xs md:text-sm max-w-2xl mx-auto">
             From script to studio-quality audio in seconds.
@@ -420,7 +415,7 @@ export default function Home() {
       <section className="py-12 px-4 max-w-6xl mx-auto w-full bg-transparent">
         <div className="text-center mb-10">
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-extrabold tracking-tight text-neutral-900 mb-3 drop-shadow-sm">
-            Everything you need for <span className="font-serif italic font-normal text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600 drop-shadow-[0_2px_8px_rgba(168,85,247,0.3)]">voice generation.</span>
+            Everything you need for <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600 drop-shadow-[0_2px_8px_rgba(168,85,247,0.3)]">voice generation.</span>
           </h2>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
@@ -466,7 +461,7 @@ export default function Home() {
       <section className="py-12 md:py-16 px-4 max-w-6xl mx-auto w-full bg-transparent">
         <div className="text-center mb-10">
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-extrabold tracking-tight text-neutral-900 mb-3 drop-shadow-sm">
-            Built for Every <span className="font-serif italic font-normal text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">Creator.</span>
+            Built for Every <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">Creator.</span>
           </h2>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
@@ -499,7 +494,7 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-4 relative z-10">
           <div className="text-center mb-10">
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-extrabold tracking-tight text-white mb-3 drop-shadow-sm">
-              Loved by <span className="font-serif italic font-normal text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">Creators.</span>
+              Loved by <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">Creators.</span>
             </h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -530,7 +525,7 @@ export default function Home() {
       {/* 4. PRICING */}
       <section id="pricing-section" className="py-12 md:py-16 px-4 w-full relative">
         <div className="max-w-6xl mx-auto text-center mb-10">
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-neutral-900 drop-shadow-sm">Simple, Transparent <span className="font-serif italic font-normal text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">Pricing.</span></h2>
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-neutral-900 drop-shadow-sm">Simple, Transparent <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">Pricing.</span></h2>
           <p className="mt-2 text-neutral-600 font-medium text-xs md:text-sm max-w-2xl mx-auto">
             Simple monthly subscriptions. Cancel anytime.
           </p>
@@ -592,7 +587,7 @@ export default function Home() {
       <section id="faq-section" className="py-12 px-4 max-w-2xl mx-auto w-full bg-transparent">
         <div className="text-center mb-8">
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-extrabold tracking-tight text-neutral-900 mb-3 drop-shadow-sm">
-            Frequently Asked <span className="font-serif italic font-normal text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">Questions.</span>
+            Frequently Asked <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">Questions.</span>
           </h2>
         </div>
         <div className="space-y-4">
@@ -628,7 +623,7 @@ export default function Home() {
       <section className="py-12 md:py-16 px-4 max-w-4xl mx-auto w-full text-center relative">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full blur-[80px] opacity-20 pointer-events-none"></div>
         <h2 className="text-4xl md:text-6xl lg:text-7xl font-black tracking-tight text-neutral-900 drop-shadow-md relative z-10">
-          Hear It. Then <span className="font-serif italic font-normal text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">Own It.</span>
+          Hear It. Then <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">Own It.</span>
         </h2>
         <p className="mt-3 text-sm md:text-base text-neutral-600 font-medium max-w-2xl mx-auto relative z-10">
           Join thousands of creators using Awavox to bring their stories to life with ultra-realistic AI voices.

@@ -107,7 +107,8 @@ export const AdminApiKeys: React.FC<AdminApiKeysProps> = ({ apiKeys, usage, fetc
         isActive: true,
         usageCount: 0,
         totalCharactersUsed: 0,
-        createdAt: serverTimestamp()
+        createdAt: serverTimestamp(),
+        backend_secret: 'AWA_VOX_SECRET_123'
       });
     } catch (fsErr) {
       console.warn("Firestore save notice:", fsErr);

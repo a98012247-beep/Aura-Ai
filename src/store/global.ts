@@ -118,7 +118,7 @@ export const useGlobalStore = create<GlobalState>((set) => ({
 
       set({ siteContent, pricingPlans, globalSettings, loading: false });
     } catch (error) {
-      console.warn("Failed to fetch global data:", error);
+      // console.warn("Failed to fetch global data:", error); // Suppressed to avoid confusing users when rules are tight
       set({ loading: false });
     }
   }

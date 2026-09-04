@@ -1,0 +1,25 @@
+--- src/pages/Home.tsx
++++ src/pages/Home.tsx
+@@ -150,14 +150,8 @@
+           >
+             <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+             <div className="flex-1 text-xs">
+-              <p className="font-bold text-red-200 mb-1">Cartesia Audio Notice</p>
+-              <p className="text-red-300 leading-relaxed">{previewError}</p>
+-              {isAdmin && (
+-                <button
+-                  onClick={() => navigate('/admin')}
+-                  className="mt-2.5 px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-lg font-bold text-[11px] flex items-center gap-1.5 transition-colors cursor-pointer"
+-                >
+-                  <Key className="w-3 h-3" />
+-                  Manage API Keys in Admin Panel
+-                </button>
+-              )}
++              <p className="font-bold text-red-200 mb-1">Notice</p>
++              <p className="text-red-300 leading-relaxed">
++                An error occurred during generation.
++                <br /><br />
++                Need help? <a href="https://wa.me/1234567890" target="_blank" rel="noopener noreferrer" className="underline font-bold hover:text-white">Contact Support on WhatsApp</a>
++              </p>
+             </div>
+             <button
