@@ -7,11 +7,11 @@ export interface Plan {
   id: string;
   name: string;
   price: number;
-  currency: string;
-  interval: string;
+  currency?: string;
+  interval?: string;
   characterLimit: number;
   features: string[];
-  isActive: boolean;
+  isActive?: boolean;
   recommended?: boolean;
   formattedPrice?: string;
   formattedCredits?: string;

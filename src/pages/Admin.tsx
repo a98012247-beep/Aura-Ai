@@ -212,7 +212,7 @@ export const AdminPage: React.FC = () => {
       }
       if (activeTab === 'api-keys') {
         const firestoreKeys = (await safeFetchDocs('platform_api_keys', 'createdAt', 'desc')) as PlatformApiKey[];
-        setPlatformApiKeys(firestoreKeys);
+        setApiKeys(firestoreKeys);
       }
       if (activeTab === 'settings') {
         try {
@@ -334,6 +334,27 @@ export const AdminPage: React.FC = () => {
       fetchData();
     } catch (error) {
       alert("Error adding earning");
+    }
+  };
+
+  const totalEarnings = earnings.reduce((sum, record) => sum + record.amount, 0);
+
+  const syncVoices = async () => {
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/internal/sync-voices', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(`Successfully synced ${data.count} voices.`);
+      } else {
+        alert(`Failed to sync voices: ${data.error}`);
+      }
+    } catch (e: any) {
+      alert(`Error syncing voices: ${e.message}`);
     }
   };
 
